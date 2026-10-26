@@ -195,6 +195,9 @@
       || (el instanceof HTMLInputElement && !['checkbox', 'radio', 'file', 'submit', 'button', 'image', 'reset'].includes(el.type))
       || (el instanceof HTMLElement && el.isContentEditable);
     if (!isText) return;
+    // Campo invisível só recebe texto do preenchimento automático do navegador (ex.: mini-login
+    // escondido no header); gravar isso gera passos que falham no replay.
+    if (!isVisible(el)) return;
     const selectors = buildSelectors(el);
     let value = el.isContentEditable ? el.innerText : el.value;
     let secret;
@@ -385,7 +388,9 @@
       }
       if (!matches.length) continue;
       const visible = matches.filter(isVisible);
-      const allowHidden = step.type === 'select' || matches.some(isCheckable);
+      // select/type aceitam campo escondido: selects customizados e passos gravados por
+      // preenchimento automático em formulários ocultos (gravações antigas).
+      const allowHidden = step.type === 'select' || step.type === 'type' || matches.some(isCheckable);
       const pool = visible.length ? visible : allowHidden ? matches : [];
       const usable = pool.filter((el) => !(['click', 'type', 'select', 'press'].includes(step.type) && el.disabled));
       if (!usable.length) continue;
