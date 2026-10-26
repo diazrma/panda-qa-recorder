@@ -1,0 +1,15 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Loja Demo</title><link rel="stylesheet" href="site.css"></head><body>
+<header class="top"><a class="logo" href="home.html">Loja<span>Demo</span></a>
+<nav><a href="home.html">Início</a><a href="produto.html?id=1">Camisetas</a><a href="produto.html?id=2">Calçados</a><a href="produto.html?id=3">Acessórios</a></nav>
+<a class="login-link" href="login.html">Entrar</a></header>
+<main>
+  <section class="hero"><h1>Coleção de verão</h1><p>Peças leves para o dia a dia, com frete grátis acima de R$ 199.</p></section>
+  <h2>Destaques</h2>
+  <div class="grid" id="products"></div>
+</main>
+<script>
+const products = [{id:1,name:'Camiseta Básica',price:'R$ 59,90'},{id:2,name:'Tênis Runner',price:'R$ 249,90'},{id:3,name:'Mochila Urbana',price:'R$ 189,90'}];
+document.getElementById('products').innerHTML = products.map((p) => `<div class="card product-item"><div class="ph"></div>
+  <strong class="product-item-name">${p.name}</strong><div class="price">${p.price}</div>
+  <a class="btn" href="produto.html?id=${p.id}">Ver produto</a></div>`).join('');
+</script></body></html>

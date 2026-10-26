@@ -1,0 +1,26 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Produto - Loja Demo</title><link rel="stylesheet" href="site.css"></head><body>
+<header class="top"><a class="logo" href="home.html">Loja<span>Demo</span></a>
+<nav><a href="home.html">Início</a><a href="produto.html?id=1">Camisetas</a><a href="produto.html?id=2">Calçados</a><a href="produto.html?id=3">Acessórios</a></nav>
+<a class="login-link" href="login.html">Entrar</a></header>
+<main>
+  <div class="page messages"></div>
+  <div class="panel" style="max-width:none;display:grid;grid-template-columns:280px 1fr;gap:24px">
+    <div class="ph" style="height:240px;border-radius:10px;background:#eef1f6"></div>
+    <div><h1 class="page-title"></h1><div class="price"></div>
+      <label for="size">Tamanho</label><select id="size" name="size"><option value="">Escolha</option><option>P</option><option>M</option><option>G</option></select>
+      <button type="button" class="primary action tocart">Adicionar ao carrinho</button></div>
+  </div>
+</main>
+<script>
+const products = [{id:1,name:'Camiseta Básica',price:'R$ 59,90'},{id:2,name:'Tênis Runner',price:'R$ 249,90'},{id:3,name:'Mochila Urbana',price:'R$ 189,90'}];
+const p = products.find((x) => String(x.id) === new URLSearchParams(location.search).get('id')) || products[0];
+document.querySelector('.page-title').textContent = p.name;
+document.querySelector('.price').textContent = p.price;
+document.querySelector('.tocart').addEventListener('click', () => {
+  const size = document.getElementById('size').value;
+  const box = document.querySelector('.page.messages');
+  box.innerHTML = size
+    ? `<div class="messages"><div class="message-success success message">Você adicionou ${p.name} (${size}) ao carrinho.</div></div>`
+    : '<div class="messages"><div class="message-error error message">Escolha um tamanho.</div></div>';
+});
+</script></body></html>

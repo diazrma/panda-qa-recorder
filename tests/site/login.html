@@ -1,0 +1,36 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Entrar - Loja Demo</title>
+<link rel="stylesheet" href="site.css"></head><body>
+<header class="top"><a class="logo" href="home.html">Loja<span>Demo</span></a>
+<nav><a href="home.html">Início</a><a href="produto.html?id=1">Camisetas</a><a href="produto.html?id=2">Calçados</a><a href="produto.html?id=3">Acessórios</a></nav>
+<a class="login-link" href="login.html">Entrar</a></header>
+<main><div class="page messages"></div>
+<h1>Entrar</h1>
+<div class="panel">
+<form id="login-form">
+  <label for="email">E-mail</label><input id="email" name="login[username]" type="email">
+  <label for="pass">Senha</label><input id="pass" name="login[password]" type="password">
+  <label class="remember"><input type="checkbox" name="remember"> Lembrar de mim</label>
+  <label for="store">Loja</label><select id="store" name="store"><option value="">Escolha</option><option value="br">Brasil</option><option value="cl">Chile</option></select>
+  <button type="submit" class="action login primary"><span>Entrar</span></button>
+  <p class="error" id="err"></p>
+</form>
+</div></main>
+<div class="loading-mask" style="display:none"></div>
+<script>
+document.getElementById('login-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target, err = document.getElementById('err');
+  const email = f.elements['login[username]'].value;
+  if (!email || f.elements['login[password]'].value !== 'Senha123') {
+    // Como o Magento: mensagem em .message-error, AJAX que falha e erro no console.
+    document.querySelector('.page.messages').innerHTML = '<div role="alert" class="messages"><div class="message-error error message"><div>O login ou a senha estão incorretos.</div></div></div>';
+    fetch('/customer/ajax/login').catch(() => {});
+    console.error('Falha no login', { email });
+    return;
+  }
+  if (!f.elements.remember.checked) { err.textContent = 'Marque lembrar'; return; }
+  if (f.elements.store.value !== 'cl') { err.textContent = 'Loja inválida'; return; }
+  document.querySelector('.loading-mask').style.display = 'block';
+  setTimeout(() => { location.href = 'account.html?u=' + encodeURIComponent(email); }, 800);
+});
+</script></body></html>

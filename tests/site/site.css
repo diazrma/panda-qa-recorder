@@ -1,0 +1,27 @@
+/* Loja Demo: site de teste do Panda QA Recorder (imita a estrutura de uma loja Magento). */
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1f2430; background: #f6f7f9; }
+a { color: #0f6cbd; }
+.top { display: flex; align-items: center; gap: 24px; padding: 14px 40px; background: #fff; border-bottom: 1px solid #e4e7ec; }
+.logo { font-weight: 800; font-size: 20px; color: #1f2430; text-decoration: none; letter-spacing: -.02em; }
+.logo span { color: #e8590c; }
+.top nav { display: flex; gap: 22px; flex: 1; }
+.top nav a { color: #3b4252; text-decoration: none; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; }
+.top .login-link { margin-left: auto; }
+main { max-width: 1040px; margin: 28px auto; padding: 0 24px; }
+.hero { padding: 40px; border-radius: 14px; background: linear-gradient(120deg, #1f2430, #3b4a6b); color: #fff; margin-bottom: 28px; }
+.hero h1 { margin: 0 0 6px; font-size: 34px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.card { background: #fff; border: 1px solid #e4e7ec; border-radius: 12px; padding: 18px; }
+.card .ph { height: 130px; border-radius: 8px; background: #eef1f6; margin-bottom: 12px; }
+.price { font-size: 22px; font-weight: 800; color: #0f6cbd; }
+.btn, button.primary { display: inline-block; padding: 9px 16px; border-radius: 8px; border: 0; background: #0f6cbd; color: #fff; font-weight: 700; text-decoration: none; cursor: pointer; font-size: 14px; }
+.panel { background: #fff; border: 1px solid #e4e7ec; border-radius: 12px; padding: 24px; max-width: 460px; }
+label { display: block; margin: 10px 0 4px; font-weight: 600; font-size: 14px; }
+input[type=email], input[type=password], input[type=text], input:not([type]), select { width: 100%; padding: 9px 10px; border: 1px solid #cdd3dd; border-radius: 8px; font: inherit; background: #fff; }
+label.remember { display: flex; gap: 8px; align-items: center; font-weight: 500; }
+button { margin-top: 14px; }
+.messages .message-error, .messages .message-success { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
+.message-error { background: #fdecea; color: #b42318; }
+.message-success { background: #e7f6ec; color: #15803d; }
+.loading-mask { position: fixed; inset: 0; background: rgba(255, 255, 255, .7); }

@@ -1,0 +1,5 @@
+{
+  "version": "1.3.0",
+  "notes": "Diagnóstico de falhas com IA local (TensorFlow.js), auto-correção de seletores, sessão limpa antes de cada execução, botão de verificar atualização.",
+  "download": "https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip"
+}

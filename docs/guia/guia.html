@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Panda QA Recorder - Guia de instalação e uso</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  :root { --blue: #2563eb; --ink: #16191f; --muted: #5b6372; --line: #e3e6eb; --soft: #f4f6fa; --ok: #15803d; --fail: #c2261d; --warn: #b45309; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 10.5pt/1.5 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; color: var(--ink); }
+  h1 { font-size: 22pt; margin: 0 0 6px; line-height: 1.15; }
+  h2 { font-size: 15pt; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--blue); break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 16px 0 6px; break-after: avoid; }
+  p { margin: 0 0 8px; }
+  section { break-before: page; }
+  .cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+  .cover img { width: 120px; height: 120px; margin-bottom: 18px; }
+  .cover .sub { font-size: 13pt; color: var(--muted); margin-bottom: 26px; }
+  .cover .meta { color: var(--muted); font-size: 10pt; }
+  .cover ul { margin: 0 0 26px; padding-left: 18px; font-size: 11pt; }
+  ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0 0 10px; }
+  ol.steps > li { counter-increment: s; position: relative; padding: 0 0 8px 34px; }
+  ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--blue); color: #fff; font-weight: 700; font-size: 9.5pt; display: grid; place-items: center; }
+  .shot { display: block; max-width: 100%; border: 1px solid var(--line); border-radius: 6px; margin: 8px 0 4px; }
+  .cap { color: var(--muted); font-size: 9pt; margin-bottom: 12px; }
+  .row { display: flex; gap: 14px; align-items: flex-start; break-inside: avoid; }
+  .row > .txt { flex: 1; }
+  .row > img { width: 62mm; flex: none; }
+  .tip, .warn { padding: 8px 12px; border-radius: 6px; margin: 10px 0; break-inside: avoid; }
+  .tip { background: #eef3ff; border-left: 4px solid var(--blue); }
+  .warn { background: #fff4e0; border-left: 4px solid var(--warn); }
+  code, .k { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 9pt; background: var(--soft); padding: 1px 5px; border-radius: 4px; }
+  .btn { display: inline-block; padding: 0 7px; border: 1px solid var(--line); border-radius: 4px; background: #fff; font-weight: 600; font-size: 9.5pt; white-space: nowrap; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9.8pt; break-inside: avoid; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { background: var(--soft); font-weight: 650; }
+  .toc { columns: 2; padding-left: 18px; }
+  .toc li { margin-bottom: 3px; }
+  .avoid { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <img src="img/panda-big.png" alt="">
+  <h1>Panda QA Recorder</h1>
+  <div class="sub">Guia de instalação e uso para o time de QA</div>
+  <ul>
+    <li>Grave um fluxo no navegador (login, cadastro, checkout) uma vez.</li>
+    <li>Ele fica salvo numa lista, com os passos escritos.</li>
+    <li>Repita com um clique sempre que precisar, quantas vezes quiser.</li>
+    <li>Quando falhar, veja o motivo, o print da tela e mande para o dev.</li>
+    <li>Uma IA local (sem enviar nada para fora) diz o tipo da falha e o que fazer.</li>
+  </ul>
+  <div class="meta">Versão 1.3.0 · Outubro de 2026 · Rodrigo Cardoso</div>
+</div>
+
+<section>
+  <h2>Conteúdo</h2>
+  <ol class="toc">
+    <li>Instalar a extensão</li>
+    <li>Abrir o painel</li>
+    <li>Gravar um teste</li>
+    <li>Adicionar verificações</li>
+    <li>Executar e repetir</li>
+    <li>Quando um teste falha</li>
+    <li>Editar passos</li>
+    <li>Variáveis (senha, e-mail único, ambiente)</li>
+    <li>Compartilhar com QA e dev</li>
+    <li>Backup</li>
+    <li>Dicas para lojas Magento</li>
+    <li>Problemas comuns</li>
+    <li>IA local e auto-correção</li>
+    <li>Atualizar a extensão</li>
+  </ol>
+
+  <h2 style="margin-top:22px">1. Instalar a extensão</h2>
+  <p>A instalação é feita uma vez por computador e leva 2 minutos. Funciona no Google Chrome, versão 116 ou mais nova.</p>
+  <ol class="steps">
+    <li>Baixe o arquivo <b>panda-qa-recorder.zip</b> (em <code>github.com/diazrma/panda-qa-recorder/releases</code>) e descompacte numa pasta fixa, por exemplo <code>Documentos/panda-qa-recorder</code>. <b>Não apague nem mova essa pasta depois</b>: o Chrome usa a extensão direto dela.</li>
+    <li>No Chrome, digite <code>chrome://extensions</code> na barra de endereço e tecle Enter.</li>
+    <li>Ligue o <b>Modo do desenvolvedor</b>, no canto superior direito da página.</li>
+    <li>Clique em <span class="btn">Carregar sem compactação</span> e escolha a pasta descompactada (a que contém o arquivo <code>manifest.json</code>).</li>
+    <li>O card do <b>Panda QA Recorder</b> aparece na lista, como na imagem abaixo.</li>
+    <li>Clique no ícone de quebra-cabeça na barra do Chrome e no alfinete ao lado de Panda QA Recorder, para o panda ficar sempre visível.</li>
+  </ol>
+  <img class="shot" src="img/i1-chrome-extensions.png" alt="">
+  <div class="cap">A extensão instalada em chrome://extensions. O botão ↻ do card recarrega a extensão depois de uma atualização.</div>
+  <div class="tip"><b>Atualizar para uma versão nova:</b> veja a seção 14. A extensão avisa sozinha quando sai versão nova.</div>
+  <div class="warn">De vez em quando o Chrome mostra um aviso sobre "extensões no modo de desenvolvedor". Basta fechar o aviso; a extensão continua funcionando.</div>
+</section>
+
+<section>
+  <h2>2. Abrir o painel</h2>
+  <p>Clique no ícone do panda na barra do Chrome. O painel abre na lateral direita e fica aberto enquanto você navega pela loja. Tudo é feito por ele: gravar, executar, ver resultados e configurar.</p>
+
+  <h2 style="margin-top:18px">3. Gravar um teste</h2>
+  <ol class="steps">
+    <li>Na aba atual, abra a página onde o fluxo começa (por exemplo, a home ou a página de login da loja).</li>
+    <li>No painel, clique em <span class="btn">● Gravar novo teste</span>. Um selo <b>● Gravando</b> aparece no canto da página.</li>
+    <li>Faça o fluxo normalmente: clique, preencha campos, escolha opções. Cada ação vira um passo no painel, já com o texto explicando o que foi feito.</li>
+    <li>Dê um nome ao teste no topo do painel (ex.: <i>Login com senha errada</i>).</li>
+    <li>Ao terminar, clique em <span class="btn">■ Parar gravação</span>.</li>
+  </ol>
+  <img class="shot" src="img/tela-gravando.png" alt="">
+  <div class="cap">Gravando na loja (Loja Demo): o selo "Gravando" no canto da página e a lista de testes no painel lateral.</div>
+  <div class="tip">Para completar um teste já gravado, abra-o e clique em <span class="btn">● Continuar gravando</span>. Os novos passos entram no final da lista.</div>
+  <div class="tip">A senha digitada <b>não é guardada no teste</b>: o passo mostra <code>{{senha}}</code> e o valor fica só nas suas Variáveis. Assim o teste pode ser compartilhado sem expor a senha.</div>
+</section>
+
+<section>
+  <h2>4. Adicionar verificações</h2>
+  <p>Um teste só confirma algo quando tem verificações. Sem elas, ele apenas repete os cliques. Use verificações para conferir o resultado esperado: a mensagem de sucesso, o título da página, o valor do total.</p>
+  <div class="row">
+    <div class="txt">
+      <ol class="steps">
+        <li>Com o teste aberto (gravando ou não), clique em <span class="btn">◎ Verificação</span>.</li>
+        <li>Passe o mouse pela página: o elemento sob o mouse fica destacado em laranja.</li>
+        <li>Clique no texto que precisa aparecer. O passo <i>Verificar que ... contém "..."</i> entra na lista. <b>Esc</b> cancela.</li>
+      </ol>
+      <p>Pelo botão <span class="btn">+ Passo</span> também dá para adicionar à mão:</p>
+      <ul>
+        <li><b>Verificar URL contém</b>: confere que a página mudou (ex.: <code>/checkout/onepage/success</code>).</li>
+        <li><b>Verificar elemento ausente</b>: confere que algo sumiu (ex.: um aviso de erro).</li>
+        <li><b>Esperar</b>, <b>Abrir URL</b>, <b>Clicar</b>, <b>Preencher campo</b>.</li>
+      </ul>
+    </div>
+    <img src="img/p2-teste-passou.png" alt="" class="shot" style="width:64mm">
+  </div>
+  <div class="cap">Teste "Login com senha errada" com uma verificação no passo 5: o aviso da loja precisa aparecer.</div>
+</section>
+
+<section>
+  <h2>5. Executar e repetir</h2>
+  <div class="row">
+    <div class="txt">
+      <ul>
+        <li><span class="btn">▶ Executar</span> roda o teste na aba atual, do primeiro passo ao último. Deixe a aba visível enquanto ele roda.</li>
+        <li>Cada passo fica <b style="color:var(--ok)">verde</b> quando passa e <b style="color:var(--fail)">vermelho</b> quando falha, com o tempo que levou.</li>
+        <li>O <b>▶ ao lado de um passo</b> executa a partir dele. É útil para investigar uma falha sem refazer tudo.</li>
+        <li><span class="btn">▶ Executar todos</span>, na lista, roda todos os testes em sequência.</li>
+        <li><span class="btn">■ Parar</span> interrompe a qualquer momento.</li>
+        <li><b>Começar com sessão limpa</b> (ligado por padrão): antes de cada execução, apaga cookies e dados só do site do teste. Cada execução começa deslogada e com carrinho vazio, como um cliente novo, mesmo que você tenha feito login durante a gravação. Desligue só se o teste precisar começar já logado.</li>
+      </ul>
+      <h3>Repetir várias vezes</h3>
+      <p>Abaixo dos botões do teste há <b>Repetir __ vez(es)</b> e <b>intervalo __ s</b>. Exemplo: 10 vezes com intervalo de 30 s. Cada repetição usa valores novos para as variáveis geradas (outro e-mail, outro CPF), então dá para criar vários cadastros seguidos.</p>
+      <p>No fim aparece o placar, por exemplo <b>"8 de 10 execuções passaram"</b>. Se uma repetição falhou, a última falha fica guardada com print e erros, mesmo que as seguintes tenham passado.</p>
+      <p>O <b>Histórico de execuções</b>, no fim da página do teste, guarda as últimas 50 execuções com data, resultado, duração e número da repetição.</p>
+    </div>
+    <img src="img/p5-repeticao.png" alt="" class="shot" style="width:64mm">
+  </div>
+  <div class="cap">Teste "Comprar camiseta tamanho M" configurado para 3 repetições com 1 s de intervalo: "3 de 3 execuções passaram".</div>
+</section>
+
+<section>
+  <h2>6. Quando um teste falha</h2>
+  <p>A extensão junta tudo o que ajuda a entender o motivo:</p>
+  <table>
+    <tr><th style="width:30%">O que</th><th>Exemplo</th></tr>
+    <tr><td>Erro do passo</td><td>"Elemento não encontrado: botão Finalizar", "URL atual não contém /success"</td></tr>
+    <tr><td>Mensagens na página</td><td>Avisos de erro da loja e erros de validação de cada campo: "O login ou a senha estão incorretos.", "Senha: Este é um campo obrigatório."</td></tr>
+    <tr><td>Erros capturados por passo</td><td>Erros de JavaScript, <code>console.error</code>, requisições que voltaram com erro (404, 500) e falhas de rede. Aparecem embaixo do passo em que aconteceram, mesmo quando o teste passa.</td></tr>
+    <tr><td>Print da tela</td><td>Foto da página no momento da falha. Clique no print para ampliar.</td></tr>
+  </table>
+  <img class="shot" src="img/tela-falha.png" alt="">
+  <div class="cap">Login que deveria entrar na conta: falhou no passo 5, e o painel mostra o diagnóstico da IA local, o aviso da loja, os erros capturados e o print.</div>
+  <p><span class="btn">⤓ Baixar relatório</span> gera um arquivo HTML com os passos, os erros, as mensagens e o print, para anexar na tarefa. <span class="btn">⧉ Copiar resumo</span> copia o mesmo conteúdo em texto, para colar direto num comentário.</p>
+</section>
+
+<section>
+  <h2>7. Editar passos</h2>
+  <p>Passe o mouse sobre um passo para ver as ações: <b>▶</b> executar a partir dele, <b>lápis</b> editar, <b>olho</b> desativar (o passo é pulado sem ser apagado) e <b>lixeira</b> excluir. Para mudar a ordem, arraste o passo pela alça <b>⋮⋮</b> à esquerda.</p>
+  <p>No editor de um passo:</p>
+  <table>
+    <tr><th style="width:28%">Campo</th><th>Para que serve</th></tr>
+    <tr><td>Texto a digitar / Valor</td><td>O que é preenchido. Aceita variáveis: clique nos atalhos <code>{{...}}</code> logo abaixo do campo.</td></tr>
+    <tr><td>Seletores</td><td>Como a extensão encontra o elemento, testados em ordem. A gravação já preenche; só mexa se o teste não achar o elemento depois de uma mudança no site. Aceita CSS (<code>#email</code>) ou texto (<code>button:text=Entrar</code>).</td></tr>
+    <tr><td>Testar na página</td><td>Destaca na aba atual o elemento que o passo encontraria. Confira antes de salvar.</td></tr>
+    <tr><td>Tempo limite</td><td>Quanto esperar o elemento só nesse passo (o padrão é 15 s). Aumente em telas lentas, como o cálculo de frete.</td></tr>
+    <tr><td>Opcional</td><td>Se o passo falhar, o teste continua. Use para pop-ups que às vezes aparecem, como o de cookies ou de newsletter.</td></tr>
+  </table>
+
+</section>
+
+<section>
+  <h2>8. Variáveis</h2>
+  <div class="row">
+    <div class="txt">
+      <p>No topo da lista, clique em <b>{ }</b>. Variáveis são escritas como <code>{{nome}}</code> nos passos e trocadas pelo valor na hora de executar.</p>
+      <table>
+        <tr><th style="width:36%">Variável</th><th>Uso</th></tr>
+        <tr><td><code>baseUrl</code></td><td>Endereço da loja. A gravação já usa <code>{{baseUrl}}</code>. Troque o valor para rodar o mesmo teste em outro ambiente (local, staging, produção).</td></tr>
+        <tr><td><code>senha</code></td><td>Preenchida sozinha com a senha digitada na gravação. Marcada como secreta (cadeado).</td></tr>
+        <tr><td><code>{{$email}}</code></td><td>E-mail novo a cada execução. Use no <b>cadastro</b>, senão a 2ª execução falha com "e-mail já cadastrado". Vale o mesmo até o fim da execução, então serve também para o login logo depois.</td></tr>
+        <tr><td><code>{{$timestamp}}</code></td><td>Número único por execução. Ex.: <code>rodrigo.test+{{$timestamp}}@example.com</code>.</td></tr>
+        <tr><td><code>{{$cpf}}</code>, <code>{{$random}}</code>, <code>{{$date}}</code></td><td>CPF válido aleatório, número aleatório e data de hoje.</td></tr>
+        <tr><td><code>emailDomain</code></td><td>(opcional) Domínio do <code>{{$email}}</code>. O padrão é <code>example.com</code>, que nunca recebe e-mail de verdade.</td></tr>
+      </table>
+    </div>
+    <img src="img/p7-variaveis.png" alt="" class="shot" style="width:58mm">
+  </div>
+</section>
+
+<section>
+  <h2>9. Compartilhar com QA e dev</h2>
+  <div class="row">
+    <div class="txt">
+      <p>No teste, clique em <span class="btn">Compartilhar</span>:</p>
+      <ul>
+        <li><b>Para outro QA:</b> <span class="btn">Copiar código</span> copia um código (<code>PANDAQA1.…</code>) para colar no chat ou na tarefa. Quem recebe abre o menu <b>⋯</b> da lista, escolhe <b>Colar teste compartilhado</b> e cola a mensagem inteira. O teste aparece na lista dele.</li>
+        <li><b>Para o dev:</b> <span class="btn">Baixar JSON</span> gera um arquivo com o teste e o resultado da última execução: passo que falhou, erro, mensagens da página, erros de JavaScript, requisições com erro e o endereço da página. O dev lê o arquivo ou importa na extensão dele para reproduzir.</li>
+        <li><b>Relatório da execução:</b> HTML com print, para anexar na tarefa.</li>
+        <li><b>Lista de passos:</b> texto numerado para o plano de teste.</li>
+      </ul>
+      <div class="tip">Quem recebe um teste precisa cadastrar as próprias variáveis <code>baseUrl</code> e <code>senha</code>. Elas nunca vão junto.</div>
+    </div>
+    <img src="img/p6-compartilhar.png" alt="" class="shot" style="width:62mm">
+  </div>
+
+</section>
+
+<section>
+  <h2>10. Backup</h2>
+  <div class="row">
+    <div class="txt">
+      <p>Os testes ficam salvos no Chrome. Como garantia, a extensão também salva sozinha um backup em <code>Downloads/panda-qa-recorder/backup-AAAA-MM-DD.json</code>, um arquivo por dia, sempre que algum teste muda (padrão: no máximo a cada 6 h).</p>
+      <p>Esse arquivo fica <b>fora do Chrome</b>, então sobrevive a limpar dados de navegação, reinstalar a extensão ou trocar de computador. Ele leva todos os testes, o histórico e os resultados. As senhas não vão.</p>
+      <p>Em <b>Configurações</b> (engrenagem): mude a frequência (1 h, 6 h, 24 h ou desligado), use <span class="btn">Fazer backup agora</span> e <span class="btn">Restaurar backup</span>.</p>
+      <p><b>Para recuperar:</b> clique em Restaurar backup e escolha o arquivo. Nada é apagado: testes que não existem são adicionados, e os que existem só são atualizados se o backup for mais novo. Depois, preencha de novo a variável <code>senha</code>.</p>
+    </div>
+    <img src="img/p8-config.png" alt="" class="shot" style="width:58mm">
+  </div>
+</section>
+
+<section>
+  <h2>11. Dicas para lojas Magento</h2>
+  <ul>
+    <li><b>Teste em staging, não em produção.</b> Rodar em produção cria pedidos, clientes e cotações de verdade.</li>
+    <li><b>Captcha no login:</b> depois de 3 tentativas erradas com o mesmo e-mail, o Magento passa a pedir captcha, e o teste deixa de conseguir passar. Em testes de login inválido, use <code>rodrigo.test+{{$timestamp}}@example.com</code> para ter um e-mail novo a cada execução. Com captcha ligado em todos os logins, peça para desativar no ambiente de teste.</li>
+    <li><b>Carregamento:</b> a extensão espera o loader do Magento sumir antes de cada passo. Se a loja usar outro loader, cadastre o seletor dele em Configurações > Seletor de carregamento.</li>
+    <li><b>Checkout:</b> o checkout do Magento monta os campos aos poucos. Se um passo falhar por "Elemento não encontrado" sem motivo aparente, aumente o tempo limite do passo ou a pausa entre passos em Configurações.</li>
+    <li><b>Pagamento com cartão:</b> os campos de cartão do gateway e a tela do 3DS ficam dentro de um quadro (iframe) de outro site. O navegador bloqueia a automação ali por segurança. Use um meio de pagamento de teste (boleto, PIX, "check/money order").</li>
+    <li><b>Dados de teste:</b> use nomes e e-mails de teste com o seu nome (<i>Test Rodrigo</i>, <code>rodrigo.test@example.com</code>). Nunca use dados de clientes reais.</li>
+  </ul>
+
+  <h2 style="margin-top:20px">12. Problemas comuns</h2>
+  <table>
+    <tr><th style="width:38%">O que acontece</th><th>O que fazer</th></tr>
+    <tr><td>Clico em Gravar e aparece "Abra a página da loja"</td><td>A aba atual não é um site (ex.: nova aba ou <code>chrome://</code>). Abra a loja na aba e tente de novo.</td></tr>
+    <tr><td>"Elemento não encontrado" num passo que antes funcionava</td><td>O site mudou. Edite o passo, clique em <b>Testar na página</b> e ajuste os seletores, ou apague o passo e regrave aquele trecho com <b>Continuar gravando</b>.</td></tr>
+    <tr><td>"Variável {{senha}} não definida"</td><td>Cadastre o valor em Variáveis ({ }). Acontece em testes importados ou compartilhados.</td></tr>
+    <tr><td>Falha logo no começo, no link "Entrar" ou no carrinho</td><td>O navegador provavelmente estava logado ou com carrinho de uma execução anterior. Deixe marcado <b>Começar com sessão limpa</b> no teste.</td></tr>
+    <tr><td>Cadastro falha na 2ª execução</td><td>Troque o e-mail do passo por <code>{{$email}}</code>.</td></tr>
+    <tr><td>O teste passa no meu computador e falha no de outra pessoa</td><td>Confira a variável <code>baseUrl</code> de cada um e se os dois estão logados ou deslogados do mesmo jeito.</td></tr>
+    <tr><td>Sumiram todos os testes</td><td>Use Configurações > Restaurar backup com o arquivo mais recente de <code>Downloads/panda-qa-recorder</code>.</td></tr>
+    <tr><td>Extensão sumiu ou dá erro depois de mover a pasta</td><td>Instale de novo a partir da pasta nova (passo 1) e restaure o backup.</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>13. IA local e auto-correção</h2>
+  <div class="row">
+    <div class="txt">
+      <h3 style="margin-top:0">Diagnóstico com IA local</h3>
+      <p>Quando um teste falha, aparece o quadro <b>Diagnóstico (IA local)</b> com o tipo provável da falha, a confiança, a explicação e <b>o que fazer</b>. A etiqueta diz de onde vem o problema: <b>Ajustar o teste</b>, <b>Problema no site</b> ou <b>Ambiente</b>.</p>
+      <p>O modelo é de TensorFlow e roda <b>dentro da extensão</b>. Nada é enviado para serviços de IA de terceiros. Ele reconhece: elemento mudou ou sumiu, sessão de execução anterior, captcha, lentidão, erro no servidor, campo obrigatório ou inválido, recusa da loja (login inválido, sem estoque, cupom), dado já cadastrado, erro de JavaScript, redirecionamento inesperado, texto diferente e configuração do teste.</p>
+      <p><b>Ele aprende com você:</b> se o diagnóstico estiver certo, clique em <span class="btn">Está certo</span>; se não, em <span class="btn">Corrigir</span>, e escolha o motivo real. O modelo é retreinado no seu computador com essa correção.</p>
+      <p>O diagnóstico também vai no relatório, no resumo e no JSON para o dev.</p>
+    </div>
+    <img src="img/ia.png" alt="" class="shot" style="width:62mm">
+  </div>
+  <div class="row" style="margin-top:8px">
+    <div class="txt">
+      <h3 style="margin-top:0">Auto-correção de seletores</h3>
+      <p>Se o site mudou e o elemento gravado não é encontrado (por exemplo, o botão ganhou outro id), a extensão procura o elemento mais parecido com o gravado: mesmo texto, rótulo, id, name, placeholder ou link. Ela só segue se um candidato for claramente o melhor.</p>
+      <p>O passo fica <b style="color:var(--warn)">amarelo</b>, com o elemento que foi usado. Confira e clique em <span class="btn">Aplicar correção</span> para atualizar o teste; os seletores antigos ficam como reserva.</p>
+      <div class="tip">As duas funções podem ser ligadas e desligadas em <b>Configurações > Inteligência</b>. Lá também dá para apagar o que a IA aprendeu.</div>
+    </div>
+    <img src="img/autocorrecao.png" alt="" class="shot" style="width:62mm">
+  </div>
+</section>
+
+<section>
+  <h2>14. Atualizar a extensão</h2>
+  <div class="row">
+    <div class="txt">
+      <p>A extensão verifica sozinha, duas vezes por dia, se há versão nova. Quando há, aparece <span class="btn" style="color:var(--ok)">Nova versão X</span> no topo do painel. Também dá para verificar na hora em <b>Configurações > Atualização > Verificar atualização</b>.</p>
+      <ol class="steps">
+        <li>Clique no aviso e em <span class="btn">Baixar versão X</span>.</li>
+        <li>Descompacte o zip <b>por cima</b> da pasta onde a extensão está instalada, substituindo os arquivos.</li>
+        <li>Clique em <span class="btn">Recarregar extensão</span> (no aviso ou em Configurações).</li>
+      </ol>
+      <p>Os testes, o histórico e o que a IA aprendeu continuam salvos.</p>
+      <div class="warn">O Chrome não deixa uma extensão instalada pela pasta trocar os próprios arquivos. Por isso a troca é manual, mas leva menos de um minuto.</div>
+    </div>
+    <img src="img/atualizacao.png" alt="" class="shot" style="width:66mm">
+  </div>
+</section>
+
+</body>
+</html>
