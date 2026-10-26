@@ -484,7 +484,9 @@ async function checkUpdate() {
   const info = { current, checkedAt: Date.now(), available: false };
   try {
     if (!updateUrl) throw new Error('Endereço de atualização não configurado.');
-    const res = await fetch(updateUrl, { cache: 'no-store' });
+    // Parâmetro único por consulta: o raw.githubusercontent.com guarda a resposta por 5 min.
+    const bust = `${updateUrl}${updateUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
+    const res = await fetch(bust, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     Object.assign(info, { latest: data.version, notes: data.notes || '', download: data.download || '', available: newerThan(data.version, current) });

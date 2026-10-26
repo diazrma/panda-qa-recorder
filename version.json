@@ -1,5 +1,5 @@
 {
-  "version": "1.3.2",
-  "notes": "O preenchimento automático de senha do Chrome não é mais gravado como passo (campos escondidos, como o mini-login do header). Testes já gravados com esses passos voltam a passar: o campo escondido é preenchido em vez de falhar.",
+  "version": "1.3.3",
+  "notes": "\"Verificar atualização\" passa a enxergar a versão nova na hora (antes podia levar até 5 minutos por causa do cache do GitHub). Inclui as correções da 1.3.2: preenchimento automático de senha não vira passo e testes antigos com esses passos voltam a passar.",
   "download": "https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip"
 }
