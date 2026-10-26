@@ -82,9 +82,15 @@ function toast(text, isError = false) {
 
 async function send(type, payload = {}) {
   const res = await chrome.runtime.sendMessage({ type, ...payload });
+  // Sem resposta: o service worker é de uma versão anterior (comum depois de trocar os
+  // arquivos da pasta sem recarregar a extensão) ou não subiu.
+  if (res === undefined) throw new Error('A extensão não respondeu. Abra Configurações e clique em "Recarregar extensão".');
   if (res && res.error) throw new Error(res.error);
   return res;
 }
+
+// Recarrega direto pelo painel: funciona mesmo quando o service worker ainda é o antigo.
+const reloadExtension = () => chrome.runtime.reload();
 
 async function activeTabId() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -945,12 +951,12 @@ load();
       if (!b) return;
       if (b.dataset.dlg === 'cancel') dlg.close();
       if (b.dataset.dlg === 'download') chrome.tabs.create({ url: u.download });
-      if (b.dataset.dlg === 'reload') send('ext:reload');
+      if (b.dataset.dlg === 'reload') reloadExtension();
     };
     dlg.showModal();
   },
-  async 'ext-reload'() {
-    await send('ext:reload');
+  'ext-reload'() {
+    reloadExtension();
   },
   async 'apply-heal'(el) {
     const i = Number(el.dataset.index);
