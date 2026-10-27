@@ -72,7 +72,7 @@ Quando um teste alterna entre passar e falhar nas últimas 10 execuções, a lis
 
 ## Lançar horas no ClickUp
 
-Em Configurações > ClickUp, cole o seu token pessoal (ClickUp: avatar > Settings > Apps > API Token). As horas saem no seu nome. Dentro do teste, cole o link ou o ID da tarefa e clique em **Vincular**. A duração vem do relógio da sessão de QA, que começa na primeira gravação ou execução depois do último lançamento, e pode ser editada. Opcional: comentar na tarefa com o resumo e o relatório HTML anexado, e mover para o status configurado quando o teste passou. Embaixo aparece o que já foi lançado na tarefa por todo mundo.
+Em Configurações > ClickUp, cole o seu token pessoal (ClickUp: avatar > Settings > Apps > API Token). As horas saem no seu nome. Dentro do teste, pesquise a tarefa pelo nome/ID ou cole o link/ID para vincular. O dropdown de status carrega as opções da lista da tarefa e salva a alteração no ClickUp. A duração vem do relógio da sessão de QA, que começa na primeira gravação ou execução depois do último lançamento, e pode ser editada. Opcional: comentar na tarefa com o resumo e o relatório HTML anexado, e mover para o status configurado quando o teste passou. Embaixo aparece o que já foi lançado na tarefa por todo mundo.
 
 ## Servidor do time (aprendizado federado e radar)
 

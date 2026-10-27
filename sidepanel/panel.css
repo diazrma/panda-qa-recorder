@@ -479,3 +479,12 @@ dialog::backdrop { background: rgba(10, 12, 16, .45); }
 .cu-hist { font-size: 12px; color: var(--muted); }
 .cu-hist b { color: var(--text); }
 .cu-hist div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-top: 1px dashed var(--border); }
+.cu-results { display: grid; gap: 4px; max-height: 220px; overflow: auto; }
+.cu-result { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); text-align: left; cursor: pointer; }
+.cu-result:hover { border-color: var(--accent); background: var(--accent-soft); }
+.cu-result .cu-name { overflow: hidden; }
+.cu-result .cu-name b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cu-manual { display: grid; gap: 5px; padding-top: 8px; border-top: 1px solid var(--border); }
+.cu-manual > span, .cu-status-picker { color: var(--muted); font-size: 11px; }
+.cu-status-picker { display: grid; gap: 4px; }
+.cu-status-picker select { width: 100%; height: 30px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }

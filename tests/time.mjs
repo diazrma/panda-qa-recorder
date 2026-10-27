@@ -53,8 +53,20 @@ await context.route('https://api.clickup.com/**', async (route) => {
   clickup.push({ method: req.method(), path: url.pathname, auth: req.headers().authorization, body: req.postDataBuffer()?.toString('utf8') });
   const json = (status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   if (req.headers().authorization !== 'pk_teste') return json(401, { err: 'Token invalid' });
+  if (req.method() === 'GET' && url.pathname === '/api/v2/team') {
+    return json(200, { teams: [{ id: '9011', name: 'Panda QA' }] });
+  }
+  if (req.method() === 'GET' && url.pathname === '/api/v2/team/9011/task') {
+    const tasks = Number(url.searchParams.get('page')) === 0
+      ? [{ id: '86ajthyru', name: 'Checkout com boleto não gera pedido', custom_id: 'QA-42', status: { status: 'qa', color: '#f59e0b' }, list: { id: '42', name: 'Sprint 42' }, folder: { name: 'Mueller' }, team_id: '9011', url: 'https://app.clickup.com/t/86ajthyru' }]
+      : [];
+    return json(200, { tasks });
+  }
   if (req.method() === 'GET' && /\/task\/86ajthyru$/.test(url.pathname)) {
-    return json(200, { id: '86ajthyru', name: 'Checkout com boleto não gera pedido', status: { status: 'qa', color: '#f59e0b' }, list: { name: 'Sprint 42' }, folder: { name: 'Mueller' }, team_id: '9011', url: 'https://app.clickup.com/t/86ajthyru' });
+    return json(200, { id: '86ajthyru', name: 'Checkout com boleto não gera pedido', status: { status: 'qa', color: '#f59e0b' }, list: { id: '42', name: 'Sprint 42' }, folder: { name: 'Mueller' }, team_id: '9011', url: 'https://app.clickup.com/t/86ajthyru' });
+  }
+  if (req.method() === 'GET' && url.pathname === '/api/v2/list/42') {
+    return json(200, { statuses: [{ status: 'to do', color: '#94a3b8' }, { status: 'em andamento', color: '#3b82f6' }, { status: 'qa', color: '#f59e0b' }, { status: 'qa aprovado', color: '#22c55e' }] });
   }
   if (req.method() === 'GET' && /\/task\/86ajthyru\/time$/.test(url.pathname)) {
     return json(200, { data: [{ user: { username: 'Ana' }, intervals: [{ start: String(Date.now() - 864e5), time: String(65 * 60e3) }] }] });
@@ -149,13 +161,27 @@ try {
     await chrome.storage.local.set({ settings: { ...settings, clickupToken: 'pk_teste', clickupDoneStatus: 'qa aprovado' } });
   });
   await panel.waitForSelector('#cu-ref');
-  await panel.fill('#cu-ref', 'https://app.clickup.com/t/86ajthyru');
-  await panel.click('[data-action="cu-link"]');
+  await panel.fill('#cu-search', 'checkout boleto');
+  await panel.click('[data-action="cu-search"]');
+  await panel.waitForSelector('.cu-result');
+  await panel.click('[data-action="cu-pick"]');
   await panel.waitForSelector('.cu-task');
   await panel.waitForSelector('.cu-hist');
-  await check('vincula pela URL e mostra tarefa, status e quem já lançou', async () => {
+  await check('pesquisa e vincula tarefa pelo nome, mostrando status e lançamentos', async () => {
     assert.match(await panel.textContent('.cu-task'), /Checkout com boleto não gera pedido.*Mueller › Sprint 42/s);
     assert.match(await panel.textContent('.cu-hist'), /Ana.*1 h 05 min/s);
+    assert.ok(clickup.some((c) => c.method === 'GET' && c.path === '/api/v2/team/9011/task'));
+  });
+  await check('carrega os status da lista no dropdown', async () => {
+    assert.deepEqual(await panel.locator('#cu-task-status option').allTextContents(), ['to do', 'em andamento', 'qa', 'qa aprovado']);
+  });
+  await panel.selectOption('#cu-task-status', 'em andamento');
+  await panel.waitForFunction(() => document.querySelector('.cu-task .cu-status')?.textContent === 'em andamento');
+  await check('atualiza o status escolhido no ClickUp e salva na tarefa', async () => {
+    const put = clickup.find((c) => c.method === 'PUT' && c.path === '/api/v2/task/86ajthyru');
+    assert.equal(JSON.parse(put.body).status, 'em andamento');
+    const saved = await sw.evaluate(async () => (await chrome.storage.local.get('tests')).tests.find((t) => t.id === 'm2').clickup);
+    assert.equal(saved.status, 'em andamento');
   });
   // Sessão de QA começou há 25 min (gravação/execução).
   await sw.evaluate(async () => {

@@ -11,7 +11,7 @@ import { CATEGORIES, diagnose, learn, failureOf, learnedCount } from '../lib/dia
 import { BUILTINS } from '../lib/vars.js';
 import { toReportHtml, toSummaryText, LOG_KIND } from '../lib/report.js';
 import { isBackup, restoreBackup } from '../lib/backup.js';
-import { parseTaskRef, getTask, logTime, comment, attach, setStatus, taskTimes, fmtDuration } from '../lib/clickup.js';
+import { parseTaskRef, getTask, searchTasks, logTime, comment, attach, setStatus, taskTimes, fmtDuration } from '../lib/clickup.js';
 import { syncTeam, pushContribution, teamConfig, uploadReport } from '../lib/team.js';
 
 const ICON = {
@@ -63,6 +63,7 @@ const state = {
   sites: {},
   team: {},
   cu: {},
+  cuSearch: null,
 };
 
 // ---------- utilitários ----------
@@ -588,9 +589,15 @@ function renderClickUp(test) {
   }
   const task = test.clickup;
   if (!task) {
+    const search = state.cuSearch?.testId === test.id ? state.cuSearch : null;
     return `<div class="cu">
       <div class="cu-head">${cuLogo()}Lançar horas no ClickUp</div>
-      <div class="cu-link"><input id="cu-ref" placeholder="Link ou ID da tarefa (ex.: 86ajthyru)"><button class="btn small primary" data-action="cu-link">Vincular</button></div>
+      <label>Pesquisar tarefa no ClickUp</label>
+      <div class="cu-link"><input id="cu-search" value="${esc(search?.query || '')}" placeholder="Nome ou ID da tarefa"><button class="btn small primary" data-action="cu-search" ${search?.loading ? 'disabled' : ''}>${search?.loading ? 'Buscando…' : 'Pesquisar'}</button></div>
+      ${search?.error ? `<div class="banner-text small">${esc(search.error)}</div>` : ''}
+      ${search?.results?.length ? `<div class="cu-results">${search.results.map((result, index) => `<button class="cu-result" data-action="cu-pick" data-index="${index}"><span class="cu-status" style="background:${esc(result.color || '#64748b')}">${esc(result.status || '?')}</span><span class="cu-name"><b>${esc(result.name)}</b><small>${esc(result.list || '')}</small></span></button>`).join('')}</div>` : ''}
+      ${search && !search.loading && !search.error && !search.results.length ? '<div class="banner-text small">Nenhuma tarefa encontrada.</div>' : ''}
+      <div class="cu-manual"><span>Ou vincule pelo link/ID</span><div class="cu-link"><input id="cu-ref" placeholder="Ex.: https://app.clickup.com/t/86ajthyru"><button class="btn small" data-action="cu-link">Vincular</button></div></div>
     </div>`;
   }
   const info = state.cu[task.id];
@@ -609,6 +616,14 @@ function renderClickUp(test) {
       <div class="cu-name"><a href="${esc(task.url)}" target="_blank">${esc(task.name)}</a><small>${esc(task.list || '')}</small></div>
       <button class="icon" data-action="cu-unlink" title="Trocar tarefa">${ICON.x}</button>
     </div>
+    <label class="cu-status-picker">Status da tarefa
+      <select id="cu-task-status" ${task.statuses?.length ? '' : 'disabled'}>
+        ${task.statuses?.length
+          ? [...new Map([...task.statuses, { status: task.status, color: task.color }].filter((s) => s.status).map((s) => [s.status, s])).values()]
+            .map((s) => `<option value="${esc(s.status)}" ${s.status === task.status ? 'selected' : ''}>${esc(s.status)}</option>`).join('')
+          : `<option>${esc(task.status || 'Status indisponível')}</option>`}
+      </select>
+    </label>
     <div class="cu-row">
       <label>Início<input value="${test.qaSince ? new Date(test.qaSince).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'agora'}" disabled></label>
       <label>Duração (min)<input id="cu-min" type="number" min="1" max="720" value="${minutes}"></label>
@@ -1101,6 +1116,29 @@ const actions = {
     const ref = parseTaskRef(document.getElementById('cu-ref').value);
     const task = await getTask(state.settings.clickupToken, ref);
     await updateTest(state.testId, (t) => { t.clickup = task; });
+    state.cuSearch = null;
+    toast(`Vinculado a "${task.name}".`);
+  },
+  async 'cu-search'() {
+    const query = document.getElementById('cu-search').value.trim();
+    state.cuSearch = { testId: state.testId, query, loading: true, results: [] };
+    render();
+    try {
+      state.cuSearch.results = await searchTasks(state.settings.clickupToken, query);
+      state.cuSearch.loading = false;
+      render();
+    } catch (err) {
+      state.cuSearch.loading = false;
+      state.cuSearch.error = err.message;
+      render();
+    }
+  },
+  async 'cu-pick'(el) {
+    const result = state.cuSearch?.results?.[Number(el.dataset.index)];
+    if (!result) throw new Error('Tarefa não encontrada na pesquisa.');
+    const task = await getTask(state.settings.clickupToken, { id: result.id });
+    await updateTest(state.testId, (t) => { t.clickup = task; });
+    state.cuSearch = null;
     toast(`Vinculado a "${task.name}".`);
   },
   async 'cu-unlink'() {
@@ -1353,7 +1391,16 @@ app.addEventListener('input', (e) => {
 app.addEventListener('change', async (e) => {
   const t = e.target;
   try {
-    if (t.id === 'test-site') {
+    if (t.id === 'cu-task-status') {
+      const test = currentTest();
+      const status = test.clickup?.statuses?.find((item) => item.status === t.value);
+      if (!test.clickup || !status) throw new Error('Status inválido para esta tarefa.');
+      await setStatus(state.settings.clickupToken, test.clickup.id, status.status);
+      await updateTest(state.testId, (item) => {
+        item.clickup = { ...item.clickup, status: status.status, color: status.color || item.clickup.color };
+      });
+      toast(`Status atualizado para "${status.status}".`);
+    } else if (t.id === 'test-site') {
       await updateTest(state.testId, (test) => {
         if (t.value === NO_SITE) delete test.site;
         else test.site = t.value;
