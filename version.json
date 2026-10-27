@@ -1,5 +1,5 @@
 {
-  "version": "1.4.0",
-  "notes": "Seletor de site na lista (filtra os testes e o \"Executar todos\" por loja). Aviso de teste instável com a chance de falhar. Lançar horas de QA numa tarefa do ClickUp, com comentário, relatório anexado e troca de status opcionais. Servidor do time: a IA aprende com as correções de todos os QAs sem enviar texto (aprendizado federado) e o radar mostra quebras novas nas lojas. Relatório por link (com PDF), aberto só com a chave do time. Configure em Configurações > Time e Configurações > ClickUp.",
+  "version": "1.5.0",
+  "notes": "Novidade no ClickUp: pesquise tarefas pelo nome ou ID, vincule direto pelo painel e altere o status da tarefa pelo dropdown com as opções da lista.",
   "download": "https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip"
 }
