@@ -1,0 +1,32 @@
+{
+  "outputDirectory": "public",
+  "buildCommand": "",
+  "functions": {
+    "api/*.js": {
+      "includeFiles": "lib/**",
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/modelo/:versao/:arq",
+      "destination": "/api/modelo?versao=:versao&arq=:arq"
+    },
+    {
+      "source": "/relatorio/:id",
+      "destination": "/api/relatorio?id=:id"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
+    }
+  ]
+}

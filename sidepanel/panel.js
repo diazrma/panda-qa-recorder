@@ -11,6 +11,8 @@ import { CATEGORIES, diagnose, learn, failureOf, learnedCount } from '../lib/dia
 import { BUILTINS } from '../lib/vars.js';
 import { toReportHtml, toSummaryText, LOG_KIND } from '../lib/report.js';
 import { isBackup, restoreBackup } from '../lib/backup.js';
+import { parseTaskRef, getTask, logTime, comment, attach, setStatus, taskTimes, fmtDuration } from '../lib/clickup.js';
+import { syncTeam, pushContribution, teamConfig, uploadReport } from '../lib/team.js';
 
 const ICON = {
   play: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.4-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z"/></svg>',
@@ -56,6 +58,11 @@ const state = {
   shot: null,
   backup: null,
   update: null,
+  site: '',
+  siteOpen: false,
+  sites: {},
+  team: {},
+  cu: {},
 };
 
 // ---------- utilitários ----------
@@ -111,6 +118,69 @@ const currentTest = () => state.tests.find((t) => t.id === state.testId) || null
 const isRunning = () => state.run && state.run.status === 'running';
 const isBusy = () => Boolean(state.rec) || isRunning();
 
+// ---------- sites ----------
+
+const NO_SITE = '-';
+
+// Testes antigos não guardam o site: vem da primeira URL gravada ou, se ela usa {{baseUrl}}, da variável.
+function siteOf(test) {
+  if (test.site) return test.site;
+  const url = test.steps.find((s) => s.type === 'navigate')?.url || '';
+  const base = state.vars.find((v) => v.key === 'baseUrl')?.value || '';
+  const raw = url.startsWith('{{baseUrl}}') ? base : url;
+  try {
+    const o = new URL(raw).origin;
+    return /^https?:/.test(o) ? o : NO_SITE;
+  } catch {
+    return NO_SITE;
+  }
+}
+
+const siteHost = (origin) => origin.replace(/^https?:\/\//, '');
+const siteLabel = (origin) => (origin === NO_SITE ? 'Sem site' : state.sites[origin]?.label || siteHost(origin));
+const SITE_COLORS = ['#e11d48', '#0ea5e9', '#16a34a', '#a855f7', '#f59e0b', '#14b8a6', '#6366f1', '#db2777'];
+
+function siteFav(origin) {
+  if (!origin) return '<span class="fav" style="background:#64748b">✱</span>';
+  if (origin === NO_SITE) return '<span class="fav" style="background:#a1a1aa">?</span>';
+  let h = 0;
+  for (const c of origin) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `<span class="fav" style="background:${SITE_COLORS[h % SITE_COLORS.length]}">${esc(siteLabel(origin).trim()[0]?.toUpperCase() || 'S')}</span>`;
+}
+
+function knownSites() {
+  const counts = new Map(Object.keys(state.sites).map((o) => [o, 0]));
+  for (const t of state.tests) {
+    const o = siteOf(t);
+    counts.set(o, (counts.get(o) || 0) + 1);
+  }
+  return [...counts].filter(([o, n]) => o !== NO_SITE || n)
+    .sort((a, b) => (a[0] === NO_SITE) - (b[0] === NO_SITE) || siteLabel(a[0]).localeCompare(siteLabel(b[0])));
+}
+
+const visibleTests = () => state.tests.filter((t) => !state.site || siteOf(t) === state.site);
+
+async function setSite(site) {
+  state.site = site;
+  state.siteOpen = false;
+  const { ui = {} } = await chrome.storage.local.get('ui');
+  await chrome.storage.local.set({ ui: { ...ui, site } });
+  render();
+}
+
+// ---------- previsão de instabilidade ----------
+
+/** Teste que alterna entre passar e falhar nas últimas execuções: falha provavelmente intermitente. */
+function flakiness(test) {
+  const runs = (test.runs || []).filter((r) => r.status === 'passed' || r.status === 'failed').slice(0, 10);
+  if (runs.length < 4) return null;
+  const failed = runs.filter((r) => r.status === 'failed').length;
+  let flips = 0;
+  for (let i = 1; i < runs.length; i++) if (runs[i].status !== runs[i - 1].status) flips++;
+  if (!failed || failed === runs.length || flips < 2) return null;
+  return { failed, total: runs.length, pct: Math.round((failed / runs.length) * 100) };
+}
+
 // ---------- carga e render ----------
 
 async function load() {
@@ -119,6 +189,10 @@ async function load() {
   state.settings = await getSettings();
   state.backup = (await chrome.storage.local.get('backupState')).backupState || null;
   state.update = (await chrome.storage.local.get('updateInfo')).updateInfo || null;
+  const extra = await chrome.storage.local.get(['sites', 'ui', 'teamModel', 'teamCheck', 'teamSent']);
+  state.sites = extra.sites || {};
+  state.site = extra.ui?.site ?? '';
+  state.team = { model: extra.teamModel || null, check: extra.teamCheck || null, sent: extra.teamSent || null };
   const s = await chrome.storage.session.get(['rec', 'run', 'suite', 'pick']);
   state.rec = s.rec ?? null;
   state.run = s.run ?? null;
@@ -164,17 +238,21 @@ function statusBadge(status, extra = '') {
 
 function renderList() {
   const f = state.filter.toLowerCase();
-  const tests = state.tests.filter((t) => !f || t.name.toLowerCase().includes(f));
+  const inSite = visibleTests();
+  const tests = inSite.filter((t) => !f || t.name.toLowerCase().includes(f));
   const runningId = isRunning() ? state.run.testId : null;
 
   const cards = tests.map((t) => {
     const last = runningId === t.id ? { status: 'running' } : t.lastRun;
+    const fl = flakiness(t);
     const meta = [
       `${t.steps.length} passo${t.steps.length === 1 ? '' : 's'}`,
       statusBadge(last?.status),
       t.lastBatch && t.lastBatch.ran > 1 ? `${t.lastBatch.passed}/${t.lastBatch.ran} passaram` : '',
       last?.at ? `${ago(last.at)} · ${secs(last.ms)}` : '',
       t.repeat > 1 ? `× ${t.repeat}` : '',
+      fl ? `<span class="badge warning" title="Alterna entre passar e falhar">Instável · ${fl.failed}/${fl.total}</span>` : '',
+      !state.site && siteOf(t) !== NO_SITE ? `<span class="site-tag">${esc(siteLabel(siteOf(t)))}</span>` : '',
     ].filter(Boolean).join(' · ');
     return `
       <li class="card" data-action="open" data-id="${t.id}">
@@ -201,14 +279,42 @@ function renderList() {
       <button class="btn primary" data-action="new" ${isBusy() ? 'disabled' : ''}><span class="dot" style="width:8px;height:8px;border-radius:50%;background:currentColor"></span>Gravar novo teste</button>
       ${isRunning()
         ? `<button class="btn" data-action="run-stop">${ICON.stop}Parar execução</button>`
-        : `<button class="btn" data-action="run-all" ${!state.tests.length || isBusy() ? 'disabled' : ''}>${ICON.play}Executar todos</button>`}
+        : `<button class="btn" data-action="run-all" ${!inSite.length || isBusy() ? 'disabled' : ''}>${ICON.play}Executar todos${state.site ? ` (${inSite.length})` : ''}</button>`}
     </div>
     ${renderSuiteBanner()}
+    ${state.tests.length || Object.keys(state.sites).length ? renderSitePicker() : ''}
     ${state.tests.length ? `<input id="filter" class="search" placeholder="Buscar teste…" value="${esc(state.filter)}">` : ''}
     ${state.tests.length
-      ? `<ul class="tests">${cards || '<li class="empty">Nenhum teste com esse nome.</li>'}</ul>`
+      ? `<ul class="tests">${cards || `<li class="empty">${inSite.length ? 'Nenhum teste com esse nome.' : 'Nenhum teste neste site ainda. Abra a loja na aba e clique em <b>Gravar novo teste</b>.'}</li>`}</ul>`
       : `<div class="empty"><strong>Nenhum teste gravado ainda</strong>Abra a página da loja nesta aba e clique em <b>Gravar novo teste</b>. Faça o fluxo (login, cadastro, checkout) normalmente; cada ação vira um passo da lista.</div>`}
   `;
+}
+
+function renderSitePicker() {
+  const cur = state.site;
+  const sub = (o) => (o && o !== NO_SITE && siteLabel(o) !== siteHost(o) ? siteHost(o) : '');
+  const opt = (origin, n) => `
+    <button class="site-opt ${cur === origin ? 'sel' : ''}" data-action="site-pick" data-site="${esc(origin)}">
+      ${siteFav(origin)}<span class="site-name">${esc(origin ? siteLabel(origin) : 'Todos os sites')}${sub(origin) ? `<small>${esc(sub(origin))}</small>` : ''}</span>
+      <span class="site-n">${n}</span>
+    </button>`;
+  return `
+    <div class="sitebar">
+      <button class="site-btn ${state.siteOpen ? 'open' : ''}" data-action="site-toggle" title="Escolher o site">
+        ${siteFav(cur)}<span class="site-name">${esc(cur ? siteLabel(cur) : 'Todos os sites')}</span>
+        ${sub(cur) ? `<span class="site-tag">${esc(sub(cur))}</span>` : ''}
+        <span class="caret">▾</span>
+      </button>
+      ${state.siteOpen ? `
+      <div class="site-dd">
+        ${opt('', state.tests.length)}
+        <hr>
+        ${knownSites().map(([o, n]) => opt(o, n)).join('')}
+        <hr>
+        <button class="site-opt add" data-action="site-current">${ICON.plus}Usar o site da aba atual</button>
+        ${cur && cur !== NO_SITE ? `<button class="site-opt add" data-action="site-rename">${ICON.edit}Renomear "${esc(siteLabel(cur))}"</button>` : ''}
+      </div>` : ''}
+    </div>`;
 }
 
 function suiteProgress(testId) {
@@ -328,7 +434,15 @@ function failureDetails(run, withShot) {
     <div class="banner-actions">
       <button class="btn small" data-action="report" data-which="${run === currentTest()?.lastFailure ? 'failure' : 'last'}">${ICON.download}Baixar relatório</button>
       <button class="btn small ghost" data-action="copy-summary" data-which="${run === currentTest()?.lastFailure ? 'failure' : 'last'}">${ICON.copy}Copiar resumo</button>
+      ${teamOn() ? `<button class="btn small ghost" data-action="report-link" data-which="${run === currentTest()?.lastFailure ? 'failure' : 'last'}">${ICON.share}Copiar link do relatório</button>` : ''}
     </div>`;
+}
+
+const teamOn = () => Boolean(state.settings.teamServer && state.settings.teamKey);
+
+async function reportLink(test, run) {
+  const diag = run.error ? await diagFor(test, run).catch(() => null) : null;
+  return uploadReport(test, run, run.status === 'failed' ? state.shot : null, diag);
 }
 
 function renderBanner(test) {
@@ -436,13 +550,86 @@ function renderTest() {
       <label>intervalo <input id="interval" type="number" min="0" max="86400" value="${test.interval || 0}" ${busy ? 'disabled' : ''}> s</label>
       <label title="Antes de cada execução, apaga cookies e dados só deste site: começa deslogado e com carrinho vazio"><input id="clean-session" type="checkbox" ${test.cleanSession !== false ? 'checked' : ''} ${busy ? 'disabled' : ''}> Começar com sessão limpa</label>
     </div>
+    <div class="test-site">
+      <label>Site <select id="test-site" ${busy ? 'disabled' : ''}>
+        ${knownSites().map(([o]) => `<option value="${esc(o)}" ${siteOf(test) === o ? 'selected' : ''}>${esc(siteLabel(o))}</option>`).join('')}
+        ${siteOf(test) === NO_SITE ? '' : `<option value="${NO_SITE}">Sem site</option>`}
+      </select></label>
+    </div>
+    ${renderForecast(test)}
     ${renderBanner(test)}
+    ${renderClickUp(test)}
     <div class="section-title"><span>Passos (${test.steps.length})</span></div>
     ${test.steps.length
       ? `<ol class="steps ${busy ? 'locked' : ''}">${steps}</ol>`
       : `<div class="empty"><strong>Sem passos</strong>Clique em <b>Gravar</b> e faça o fluxo na página.</div>`}
     ${runs ? `<details class="history"><summary>Histórico de execuções (${test.runs.length})</summary><ul class="history-list">${runs}</ul></details>` : ''}
   `;
+}
+
+function renderForecast(test) {
+  const fl = flakiness(test);
+  if (!fl || isBusy()) return '';
+  return `<div class="banner stopped"><div class="banner-title">Teste instável: falhou ${fl.failed} das últimas ${fl.total} execuções</div>
+    <div class="banner-text">Ele alterna entre passar e falhar. Chance de falhar na próxima: cerca de ${fl.pct}%. Se falhar, rode de novo antes de abrir bug e veja se o diagnóstico aponta lentidão ou sessão.</div></div>`;
+}
+
+// ---------- ClickUp ----------
+
+const cuLogo = () => '<span class="cu-logo">C</span>';
+
+function qaElapsed(test) {
+  return test.qaSince ? Math.min(Date.now() - test.qaSince, 8 * 3600e3) : 0;
+}
+
+function renderClickUp(test) {
+  if (!state.settings.clickupToken) {
+    return test.steps.length ? `<div class="cu cu-off">${cuLogo()}<span>Lançar as horas deste teste numa tarefa do ClickUp</span><button class="btn small ghost" data-action="view" data-view="settings">Configurar</button></div>` : '';
+  }
+  const task = test.clickup;
+  if (!task) {
+    return `<div class="cu">
+      <div class="cu-head">${cuLogo()}Lançar horas no ClickUp</div>
+      <div class="cu-link"><input id="cu-ref" placeholder="Link ou ID da tarefa (ex.: 86ajthyru)"><button class="btn small primary" data-action="cu-link">Vincular</button></div>
+    </div>`;
+  }
+  const info = state.cu[task.id];
+  if (!info) loadTaskTimes(test);
+  const last = test.lastBatch && test.lastBatch.ran > 1
+    ? `${test.lastBatch.ran} execuções, ${test.lastBatch.passed} passaram`
+    : test.lastRun ? ({ passed: 'passou', failed: `falhou no passo ${test.lastRun.failedIndex + 1}` }[test.lastRun.status] || 'interrompido') : 'sem execução';
+  const minutes = Math.max(1, Math.round(qaElapsed(test) / 60000));
+  const desc = `QA: ${test.name} (${siteLabel(siteOf(test))}), ${last}.`;
+  const passed = test.lastRun?.status === 'passed';
+  const done = state.settings.clickupDoneStatus;
+  return `<div class="cu">
+    <div class="cu-head">${cuLogo()}Lançar horas no ClickUp</div>
+    <div class="cu-task">
+      <span class="cu-status" style="background:${esc(task.color || '#64748b')}">${esc(task.status || '?')}</span>
+      <div class="cu-name"><a href="${esc(task.url)}" target="_blank">${esc(task.name)}</a><small>${esc(task.list || '')}</small></div>
+      <button class="icon" data-action="cu-unlink" title="Trocar tarefa">${ICON.x}</button>
+    </div>
+    <div class="cu-row">
+      <label>Início<input value="${test.qaSince ? new Date(test.qaSince).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'agora'}" disabled></label>
+      <label>Duração (min)<input id="cu-min" type="number" min="1" max="720" value="${minutes}"></label>
+    </div>
+    <textarea id="cu-desc" rows="2">${esc(desc)}</textarea>
+    <label class="check"><input type="checkbox" id="cu-comment" checked><span>Comentar na tarefa com o resumo${test.lastRun ? (teamOn() ? ' e o link do relatório' : ' e anexar o relatório HTML') : ''}</span></label>
+    ${done ? `<label class="check"><input type="checkbox" id="cu-status" ${passed ? '' : 'disabled'}><span>Mover para "${esc(done)}"${passed ? '' : ' (só quando o teste passa)'}</span></label>` : ''}
+    <div class="banner-actions"><button class="btn small primary" data-action="cu-launch">Lançar horas</button>
+      ${test.qaSince ? '<button class="btn small ghost" data-action="cu-reset" title="Recomeça a contar a sessão de QA agora">Zerar relógio</button>' : ''}</div>
+    ${info?.times?.length ? `<div class="cu-hist"><b>Já lançado nesta tarefa</b>${info.times.map((t) => `<div><span>${esc(new Date(t.start).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }))} · ${esc(t.user)}</span><span>${fmtDuration(t.ms)}</span></div>`).join('')}</div>` : ''}
+    ${info?.error ? `<div class="banner-text small">${esc(info.error)}</div>` : ''}
+  </div>`;
+}
+
+function loadTaskTimes(test) {
+  const id = test.clickup.id;
+  state.cu[id] = { loading: true };
+  taskTimes(state.settings.clickupToken, id).then(
+    (times) => { state.cu[id] = { times }; render(); },
+    (e) => { state.cu[id] = { error: e.message }; render(); },
+  );
 }
 
 function renderVars() {
@@ -501,6 +688,25 @@ function renderSettings() {
       <label class="check"><input type="checkbox" data-setting="autoHeal" ${s.autoHeal !== false ? 'checked' : ''}>
         <span>Auto-correção de seletores<br><small>Se o elemento gravado não for encontrado, procura o mais parecido (mesmo texto, rótulo, id ou name) e segue. O passo fica marcado para você aplicar ou não a correção.</small></span></label>
       <div class="banner-actions" style="margin-top:0"><button class="btn small ghost" data-action="ai-reset">${ICON.trash}Apagar aprendizado da IA</button></div>
+      <div class="section-title" style="padding:8px 0 0">Time (aprendizado federado e radar)</div>
+      <label>Servidor do time
+        <input type="url" data-setting="teamServer" value="${esc(s.teamServer)}" placeholder="https://panda-qa.vercel.app"></label>
+      <label>Chave do time
+        <input type="password" data-setting="teamKey" value="${esc(s.teamKey)}" autocomplete="off">
+        <small>Quem administra o servidor passa essa chave. Ela não vai no backup nem no export.</small></label>
+      <label class="check"><input type="checkbox" data-setting="teamLearn" ${s.teamLearn !== false ? 'checked' : ''}>
+        <span>Aprender com o time<br><small>Baixa o modelo do time e manda só a diferença de pesos que suas correções geraram. Nenhum texto, URL ou print sai do navegador.</small></span></label>
+      <label class="check"><input type="checkbox" data-setting="teamRadar" ${s.teamRadar !== false ? 'checked' : ''}>
+        <span>Radar das lojas<br><small>A cada execução manda o apelido do site (não o endereço), o trecho da URL (ex.: /checkout), se passou ou falhou, o tempo e os números da falha.</small></span></label>
+      <div class="banner-text">${teamStatus()}</div>
+      <div class="banner-actions" style="margin-top:0"><button class="btn small" data-action="team-sync" ${s.teamServer && s.teamKey ? '' : 'disabled'}>Sincronizar agora</button></div>
+      <div class="section-title" style="padding:8px 0 0">ClickUp</div>
+      <label>Token pessoal do ClickUp
+        <input type="password" data-setting="clickupToken" value="${esc(s.clickupToken)}" placeholder="pk_..." autocomplete="off">
+        <small>No ClickUp: avatar > Settings > Apps > API Token. As horas saem no seu nome. Fica só neste navegador.</small></label>
+      <label>Status quando o teste passa (opcional)
+        <input type="text" data-setting="clickupDoneStatus" value="${esc(s.clickupDoneStatus)}" placeholder="ex.: qa aprovado">
+        <small>Nome exato do status na lista. Vazio: não oferece mudar o status.</small></label>
       <div class="section-title" style="padding:8px 0 0">Backup</div>
       <label>Backup automático
         <select id="set-backup" data-setting="backupHours">
@@ -515,6 +721,17 @@ function renderSettings() {
         <button class="btn" data-action="restore">${ICON.upload}Restaurar backup</button>
       </div>
     </div>`;
+}
+
+function teamStatus() {
+  const { model, check, sent } = state.team;
+  if (!state.settings.teamServer || !state.settings.teamKey) return 'Desligado: preencha o servidor e a chave do time.';
+  const parts = [model
+    ? `Modelo do time <b>v${model.versao}</b>${model.acuracia != null ? ` (acerta ${Math.round(model.acuracia * 100)}% nos casos de referência)` : ''}`
+    : 'Ainda sem o modelo do time'];
+  if (sent?.total) parts.push(`${sent.total} contribuição(ões) enviada(s)`);
+  if (check?.at) parts.push(`sincronizado ${ago(check.at)}`);
+  return parts.join(' · ') + (check?.error ? `<br>Erro: ${esc(check.error)}` : '');
 }
 
 // ---------- menus ----------
@@ -540,6 +757,10 @@ function closeMenu() {
 }
 
 document.addEventListener('mousedown', (e) => {
+  if (state.siteOpen && !e.target.closest('.sitebar')) {
+    state.siteOpen = false;
+    render();
+  }
   if (!menuEl.hidden && !menuEl.contains(e.target) && !e.target.closest('[data-action^="menu-"]')) closeMenu();
 });
 
@@ -725,6 +946,10 @@ async function shareTest(test) {
         <div><b>Relatório da execução</b><small>HTML com os passos, os erros e o print, para anexar na tarefa.</small></div>
         <button class="btn small" data-share="report">${ICON.download}Baixar relatório</button>
       </div>` : ''}
+      ${run && teamOn() ? `<div class="share-opt">
+        <div><b>Link do relatório</b><small>Página no servidor do time, com botão para baixar em PDF. Só abre com a chave do time (a mesma da extensão).</small></div>
+        <button class="btn small" data-share="link">${ICON.copy}Copiar link</button>
+      </div>` : ''}
       <div class="share-opt">
         <div><b>Lista de passos</b><small>Texto numerado para o plano de teste.</small></div>
         <button class="btn small ghost" data-share="steps">${ICON.copy}Copiar lista</button>
@@ -752,6 +977,12 @@ async function shareTest(test) {
         const stamp = new Date(run.at).toISOString().slice(0, 16).replace(/[:T]/g, '-');
         const diag = run.error ? await diagFor(test, run).catch(() => null) : null;
         download(`relatorio-${slug(test.name)}-${stamp}.html`, toReportHtml(test, run, run.status === 'failed' ? state.shot : null, diag), 'text/html');
+      } else if (kind === 'link') {
+        b.disabled = true;
+        const url = await reportLink(test, run);
+        await navigator.clipboard.writeText(url);
+        toast('Link do relatório copiado.');
+        b.disabled = false;
       } else if (kind === 'steps') {
         await navigator.clipboard.writeText(toMarkdown(test));
         toast('Lista de passos copiada.');
@@ -807,13 +1038,7 @@ const actions = {
     const test = await createTest(`Teste ${n} - ${new Date().toLocaleDateString('pt-BR')}`);
     state.testId = test.id;
     state.view = 'test';
-    await // Atualiza a contagem regressiva do intervalo entre repetições.
-setInterval(() => {
-  if (state.suite && state.suite.nextAt) render();
-}, 1000);
-
-learnedCount().then((n) => { learnedTotal = n; }).catch(() => {});
-load();
+    await load();
     try {
       await startRecording(test.id);
     } catch (e) {
@@ -825,13 +1050,7 @@ load();
   open(el) {
     state.testId = el.dataset.id;
     state.view = 'test';
-    // Atualiza a contagem regressiva do intervalo entre repetições.
-setInterval(() => {
-  if (state.suite && state.suite.nextAt) render();
-}, 1000);
-
-learnedCount().then((n) => { learnedTotal = n; }).catch(() => {});
-load();
+    load();
   },
   back() {
     state.view = state.view === 'test' || !state.testId ? 'list' : 'test';
@@ -850,7 +1069,85 @@ load();
     await send('run:start', { testIds: [state.testId], tabId: await activeTabId(), startIndex: Number(el.dataset.index) });
   },
   async 'run-all'() {
-    await send('run:start', { testIds: state.tests.map((t) => t.id), tabId: await activeTabId() });
+    await send('run:start', { testIds: visibleTests().map((t) => t.id), tabId: await activeTabId() });
+  },
+  'site-toggle'() {
+    state.siteOpen = !state.siteOpen;
+    render();
+  },
+  'site-pick'(el) {
+    return setSite(el.dataset.site);
+  },
+  async 'site-current'() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    let origin = null;
+    try {
+      origin = new URL(tab?.url || '').origin;
+    } catch {
+      // sem URL
+    }
+    if (!origin || !/^https?:/.test(origin)) throw new Error('Abra a página da loja (http/https) na aba atual.');
+    if (!state.sites[origin]) await chrome.storage.local.set({ sites: { ...state.sites, [origin]: { label: siteHost(origin) } } });
+    await setSite(origin);
+  },
+  async 'site-rename'() {
+    const origin = state.site;
+    const label = prompt(`Nome para ${siteHost(origin)} (ex.: Mueller · staging)`, siteLabel(origin));
+    if (label == null) return;
+    state.siteOpen = false;
+    await chrome.storage.local.set({ sites: { ...state.sites, [origin]: { label: label.trim() || siteHost(origin) } } });
+  },
+  async 'cu-link'() {
+    const ref = parseTaskRef(document.getElementById('cu-ref').value);
+    const task = await getTask(state.settings.clickupToken, ref);
+    await updateTest(state.testId, (t) => { t.clickup = task; });
+    toast(`Vinculado a "${task.name}".`);
+  },
+  async 'cu-unlink'() {
+    await updateTest(state.testId, (t) => { delete t.clickup; });
+  },
+  async 'cu-reset'() {
+    await updateTest(state.testId, (t) => { t.qaSince = Date.now(); });
+  },
+  async 'cu-launch'(el) {
+    const test = currentTest();
+    const token = state.settings.clickupToken;
+    const minutes = Math.min(720, Math.max(1, Math.round(Number(document.getElementById('cu-min').value) || 0)));
+    const description = document.getElementById('cu-desc').value.trim();
+    const withComment = document.getElementById('cu-comment')?.checked;
+    const withStatus = document.getElementById('cu-status')?.checked;
+    el.disabled = true;
+    try {
+      const task = await getTask(token, { id: test.clickup.id });
+      const duration = minutes * 60000;
+      await logTime(token, task, { start: Date.now() - duration, duration, description });
+      if (withComment) {
+        const run = test.lastRun?.status === 'failed' && test.lastFailure ? test.lastFailure : test.lastRun;
+        const diag = run?.error ? await diagFor(test, run).catch(() => null) : null;
+        // Com o servidor do time, o comentário leva o link do relatório (com PDF) em vez do arquivo.
+        const link = run && teamOn() ? await reportLink(test, run).catch(() => null) : null;
+        await comment(token, task.id, `${description}\nTempo lançado: ${fmtDuration(duration)}.${link ? `\nRelatório: ${link}` : ''}${run ? `\n\n${toSummaryText(test, run, diag)}` : ''}`);
+        if (run && !link) {
+          const stamp = new Date(run.at).toISOString().slice(0, 16).replace(/[:T]/g, '-');
+          await attach(token, task.id, `relatorio-${slug(test.name)}-${stamp}.html`, toReportHtml(test, run, run.status === 'failed' ? state.shot : null, diag));
+        }
+      }
+      if (withStatus && state.settings.clickupDoneStatus) await setStatus(token, task.id, state.settings.clickupDoneStatus);
+      delete state.cu[task.id];
+      await updateTest(test.id, (t) => {
+        t.clickup = withStatus ? { ...task, status: state.settings.clickupDoneStatus } : task;
+        t.qaSince = null;
+      });
+      toast(`${fmtDuration(duration)} lançados em "${task.name}".`);
+    } finally {
+      el.disabled = false;
+    }
+  },
+  async 'team-sync'() {
+    await syncTeam(globalThis.tf);
+    await send('radar:flush').catch(() => {});
+    aiCache.clear();
+    toast('Sincronizado com o servidor do time.');
   },
   async 'run-stop'() {
     await send('run:stop');
@@ -915,6 +1212,18 @@ load();
     const diag = run.error ? await diagFor(test, run).catch(() => null) : null;
     download(`relatorio-${slug(test.name)}-${stamp}.html`, toReportHtml(test, run, run.status === 'failed' ? state.shot : null, diag), 'text/html');
   },
+  async 'report-link'(el) {
+    const test = currentTest();
+    const run = el.dataset.which === 'failure' ? test.lastFailure : test.lastRun;
+    el.disabled = true;
+    try {
+      const url = await reportLink(test, run);
+      await navigator.clipboard.writeText(url);
+      toast('Link do relatório copiado.');
+    } finally {
+      el.disabled = false;
+    }
+  },
   async 'copy-summary'(el) {
     const test = currentTest();
     const run = el.dataset.which === 'failure' ? test.lastFailure : test.lastRun;
@@ -978,7 +1287,7 @@ load();
   },
   async 'ai-reset'() {
     if (!confirm('Apagar tudo o que a IA aprendeu com as correções? Ela volta ao treino inicial.')) return;
-    await chrome.storage.local.remove(['diagExamples', 'diagModelSig']);
+    await chrome.storage.local.remove(['diagExamples', 'diagModelSig', 'teamDelta']);
     learnedTotal = 0;
     aiCache.clear();
     toast('Aprendizado apagado. O modelo será treinado de novo na próxima análise.');
@@ -989,6 +1298,7 @@ load();
     const run = el.dataset.which === 'failure' ? test.lastFailure : test.lastRun;
     await learn(failureOf(test, run), el.dataset.cat);
     learnedTotal = await learnedCount();
+    pushContribution().catch(() => {});
     toast('Obrigado! O modelo aprendeu com essa confirmação.');
     render();
   },
@@ -1011,6 +1321,7 @@ load();
       toast('Treinando o modelo com a correção…');
       await learn(failureOf(test, run), form.cat.value);
       learnedTotal = await learnedCount();
+      pushContribution().catch(() => {});
       toast('Pronto: o modelo aprendeu com a correção.');
       render();
     };
@@ -1042,7 +1353,12 @@ app.addEventListener('input', (e) => {
 app.addEventListener('change', async (e) => {
   const t = e.target;
   try {
-    if (t.id === 'clean-session') {
+    if (t.id === 'test-site') {
+      await updateTest(state.testId, (test) => {
+        if (t.value === NO_SITE) delete test.site;
+        else test.site = t.value;
+      });
+    } else if (t.id === 'clean-session') {
       await updateTest(state.testId, (test) => { test.cleanSession = t.checked; });
     } else if (t.id === 'repeat' || t.id === 'interval') {
       const max = t.id === 'repeat' ? 500 : 86400;
@@ -1138,3 +1454,11 @@ setInterval(() => {
 
 learnedCount().then((n) => { learnedTotal = n; }).catch(() => {});
 load();
+
+// Modelo do time: confere ao abrir o painel e a cada 15 minutos com ele aberto.
+async function teamTick() {
+  if (!(await teamConfig()).on) return;
+  if (await syncTeam(globalThis.tf).catch(() => false)) aiCache.clear();
+}
+teamTick();
+setInterval(teamTick, 15 * 60 * 1000);

@@ -62,11 +62,48 @@ Categorias: elemento mudou ou sumiu, sessão de execução anterior, captcha, le
 - **Está certo** e **Corrigir** ensinam o modelo: as correções ficam salvas no navegador e o modelo é retreinado localmente.
 - O diagnóstico vai no relatório, no resumo e no JSON para o dev.
 
+## Separar por site
+
+O seletor acima da lista mostra os sites dos testes, com a contagem de cada um. Escolhido um site, a lista e o **Executar todos** passam a valer só para ele, e a escolha fica salva. O site é gravado junto com o teste na primeira gravação. Testes antigos usam a primeira URL gravada ou, se ela é `{{baseUrl}}`, o valor da variável. **Usar o site da aba atual** cadastra a loja aberta na aba, e **Renomear** troca o nome mostrado (ex.: "Mueller · staging"). Dentro do teste, o campo **Site** muda o site dele.
+
+## Teste instável
+
+Quando um teste alterna entre passar e falhar nas últimas 10 execuções, a lista mostra **Instável · 3/10** e, dentro do teste, a chance de falhar na próxima. Nesses casos, rode de novo antes de abrir bug.
+
+## Lançar horas no ClickUp
+
+Em Configurações > ClickUp, cole o seu token pessoal (ClickUp: avatar > Settings > Apps > API Token). As horas saem no seu nome. Dentro do teste, cole o link ou o ID da tarefa e clique em **Vincular**. A duração vem do relógio da sessão de QA, que começa na primeira gravação ou execução depois do último lançamento, e pode ser editada. Opcional: comentar na tarefa com o resumo e o relatório HTML anexado, e mover para o status configurado quando o teste passou. Embaixo aparece o que já foi lançado na tarefa por todo mundo.
+
+## Servidor do time (aprendizado federado e radar)
+
+Em Configurações > Time, informe o endereço do servidor e a chave do time.
+
+- **Aprender com o time**: a extensão baixa o modelo do time e o ajusta com as suas correções. Só a diferença de pesos (números) vai para o servidor, nunca texto, URL ou print. O servidor junta as contribuições numa rodada, descarta as que pioram o modelo nos casos de referência, faz a média e só publica a versão nova se ela não errar mais que a anterior. As extensões baixam a versão nova em até 15 minutos.
+- **Radar das lojas**: a cada execução vai o apelido do site (hash do endereço), o trecho da URL com só as partes conhecidas do Magento (`/checkout#payment`, produto vira `*`), se passou ou falhou, o tempo e os números da falha. O servidor classifica a falha e aponta quebra nova: um trecho que passava e começou a falhar para mais de um QA na janela recente.
+
+- **Link do relatório**: em Compartilhar > Link do relatório (ou **Copiar link do relatório** na falha), o relatório vai para o servidor e vira um link individual, `https://<servidor>/relatorio/<número>`, com botão **Baixar PDF**. O link só abre com a chave do time: na primeira vez a página pede a chave e o navegador fica liberado por 90 dias. Trocar `EQUIPE_CHAVE` na Vercel derruba todos os acessos. Com o servidor configurado, o comentário do ClickUp leva esse link em vez do HTML anexado.
+
+O painel do servidor (página inicial, protegida pela senha do admin) mostra os alertas, o mapa de calor por site e trecho, as rodadas do aprendizado, permite voltar o modelo para uma versão anterior e abrir o bug de um alerta no ClickUp. O bug automático vem desligado e só cria tarefa quando é ligado no painel.
+
+### Subir o servidor
+
+Projeto Vercel na raiz deste repositório, com Vercel Blob ligado. Variáveis:
+
+| Variável | Para que serve |
+|---|---|
+| `ADMIN_SENHA` | Senha do painel (mínimo 8 caracteres). |
+| `EQUIPE_CHAVE` | Chave que os QAs colam em Configurações > Time. |
+| `BLOB_READ_WRITE_TOKEN` | Criada ao ligar o Blob no projeto. |
+| `CLICKUP_TOKEN`, `CLICKUP_LISTA` | (opcional) Token e id da lista onde o radar abre bugs. |
+
+Local: `npm run servidor` (lê `.env.local` e grava em `.dados/`; o token do Blob que o `vercel link` põe no `.env.local` é ignorado para não gravar em produção, a menos que rode com `USAR_BLOB=1`).
+
 ## Auto-correção de seletores
 
 Ao gravar, cada passo guarda uma "impressão digital" do elemento (texto, rótulo, id, name, placeholder, aria-label, link, classes; nunca o valor digitado). Se nenhum seletor encontra o elemento, a extensão procura o mais parecido e só segue quando um candidato é claramente o melhor. O passo fica amarelo, e **Aplicar correção** atualiza os seletores, mantendo os antigos como reserva.
 
 As duas funções têm chave em Configurações > Inteligência.
+
 
 ## Editar passos
 
@@ -134,6 +171,8 @@ Botão de engrenagem:
 ```bash
 npm install
 npm test                 # carrega a extensão no Chromium, grava, executa e tira prints em tests/out/
+npm run test:time        # seletor de site, instável, ClickUp (API simulada) e servidor do time local
+npm run test:servidor    # aprendizado federado, radar e bug automático do servidor
 MAGENTO_URL=https://sua-loja.test npm run test:magento   # mesmo fluxo numa loja Magento real (prints em tests/out/magento/)
 npm run guide:screens    # refaz os prints do guia usando a Loja Demo (tests/site)
 npm run guide            # gera docs/Panda-QA-Recorder-Guia.pdf a partir de docs/guia/guia.html

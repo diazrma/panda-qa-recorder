@@ -5,6 +5,9 @@
 import { getTest, updateTest, getVars, saveVars, getSettings, uid } from './lib/store.js';
 import { newRunContext, resolveStep } from './lib/vars.js';
 import { buildBackup } from './lib/backup.js';
+import { failureOf } from './lib/diagnosis.js';
+import { siteAlias, fluxoDe, sparseVector } from './lib/anon.js';
+import { queueSignal, flushSignals } from './lib/team.js';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 
@@ -61,6 +64,10 @@ async function startRecording({ testId, tabId }) {
 
   await setSession('rec', { testId, tabId });
   const test = await getTest(testId);
+  await enqueue(() => updateTest(testId, (t) => {
+    if (!t.site) t.site = new URL(tab.url).origin;
+    if (!t.qaSince) t.qaSince = Date.now();
+  }));
   if (!test.steps.length) {
     await enqueue(async () => appendStep(testId, { type: 'navigate', url: await toBaseUrl(tab.url) }));
   }
@@ -327,8 +334,23 @@ async function runTest(testId, tabId, startIndex = 0, job = null) {
       { status: run.status, at: run.finishedAt, ms: run.finishedAt - run.startedAt, error, iter: run.iter, of: run.of },
       ...(t.runs || []),
     ].slice(0, 50);
+    // Relógio da sessão de QA para lançar horas no ClickUp: começa na primeira execução ou gravação.
+    if (!t.qaSince) t.qaSince = run.startedAt;
   }));
+  if (run.status !== 'stopped') await radarSignal(testId, tabId, run).catch((e) => console.warn('radar', e));
   return run.status;
+}
+
+// Sinal do radar das lojas: só apelido do site, trecho da URL, resultado e o vetor de números da falha.
+async function radarSignal(testId, tabId, run) {
+  const test = await getTest(testId);
+  let url = run.diagnostics?.url;
+  if (!url) url = await chrome.tabs.get(tabId).then((t) => t.url, () => null);
+  const origin = test.site || (url && /^https?:/.test(url) ? new URL(url).origin : null);
+  if (!origin) return;
+  const signal = { s: siteAlias(origin), f: fluxoDe(url || origin), t: siteAlias(testId), st: run.status, ms: run.finishedAt - run.startedAt, at: run.finishedAt };
+  if (run.status === 'failed') signal.v = sparseVector(failureOf(test, test.lastRun));
+  await queueSignal(signal);
 }
 
 async function abortableSleep(ms) {
@@ -498,6 +520,10 @@ async function checkUpdate() {
 }
 
 chrome.alarms.create('update', { periodInMinutes: 720 });
+chrome.alarms.create('radar', { periodInMinutes: 2 });
+chrome.alarms.onAlarm.addListener((a) => {
+  if (a.name === 'radar') flushSignals().catch(() => {});
+});
 chrome.alarms.onAlarm.addListener((a) => {
   if (a.name === 'update') checkUpdate().catch(console.error);
 });
@@ -544,6 +570,7 @@ const handlers = {
     return { ok: true };
   },
   'backup:now': () => writeBackup(),
+  'radar:flush': () => flushSignals(),
   'update:check': () => checkUpdate(),
   'ext:reload': () => {
     setTimeout(() => chrome.runtime.reload(), 100);

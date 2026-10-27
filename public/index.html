@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Panda QA Admin</title>
+<script>
+  // Escuro por padrão; a escolha fica neste navegador.
+  try { document.documentElement.dataset.theme = localStorage.getItem('pqa-tema') || 'dark'; } catch { document.documentElement.dataset.theme = 'dark'; }
+</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><circle cx='11' cy='13' r='4' fill='white'/><circle cx='21' cy='13' r='4' fill='white'/><circle cx='11' cy='13' r='2' fill='%23111'/><circle cx='21' cy='13' r='2' fill='%23111'/><ellipse cx='16' cy='22' rx='3' ry='2' fill='white'/></svg>">
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #fff; --surface-2: #f0f2f5; --border: #e2e5ea; --text: #15181e; --muted: #626a77;
+    --accent: #2563eb; --accent-soft: #e8efff; --ok: #15803d; --ok-soft: #e6f5ea; --fail: #c2261d; --fail-soft: #fdecea;
+    --warn: #b45309; --warn-soft: #fff3df; --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 8px 24px rgba(15, 23, 42, .06);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1115; --surface: #171a21; --surface-2: #1f232c; --border: #2b303b; --text: #e8eaef; --muted: #98a0ad;
+      --accent: #5b8cff; --accent-soft: #1b2847; --ok: #4ade80; --ok-soft: #12291b; --fail: #f87171; --fail-soft: #361616;
+      --warn: #fbbf24; --warn-soft: #33260c; --shadow: 0 1px 2px rgba(0, 0, 0, .4); color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1115; --surface: #171a21; --surface-2: #1f232c; --border: #2b303b; --text: #e8eaef; --muted: #98a0ad;
+    --accent: #5b8cff; --accent-soft: #1b2847; --ok: #4ade80; --ok-soft: #12291b; --fail: #f87171; --fail-soft: #361616;
+    --warn: #fbbf24; --warn-soft: #33260c; --shadow: 0 1px 2px rgba(0, 0, 0, .4); color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 60px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  header h1 { font-size: 18px; margin: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
+  header h1 small { font-weight: 500; color: var(--muted); font-size: 13px; }
+  .logo { width: 28px; height: 28px; border-radius: 7px; background: var(--accent); display: grid; place-items: center; color: #fff; font-weight: 800; }
+  .btn { height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-weight: 550; white-space: nowrap; }
+  .btn:hover { background: var(--surface-2); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.small { height: 26px; padding: 0 9px; font-size: 12px; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .grid { display: grid; gap: 14px; }
+  .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .two { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+  .card h2 { font-size: 14px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .sub { color: var(--muted); font-weight: 500; font-size: 12px; margin-left: auto; }
+  .kpi .label { color: var(--muted); font-size: 12px; }
+  .kpi .val { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: 4px; }
+  .kpi .hint { color: var(--muted); font-size: 12px; }
+  section { margin-top: 22px; }
+  section > .title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin: 0 0 10px; }
+  .alert { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; padding: 12px 14px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--fail) 35%, transparent); background: var(--fail-soft); }
+  .alert + .alert { margin-top: 8px; }
+  .alert b { font-size: 15px; }
+  .alert .meta { color: var(--muted); font-size: 13px; grid-column: 1; }
+  .alert .act { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+  .pill { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 650; background: var(--surface-2); color: var(--muted); }
+  .pill.site { background: var(--fail-soft); color: var(--fail); }
+  .pill.teste { background: var(--accent-soft); color: var(--accent); }
+  .pill.ambiente { background: var(--warn-soft); color: var(--warn); }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.bad { background: var(--fail-soft); color: var(--fail); }
+  .empty { color: var(--muted); padding: 10px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 650; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  code, .mono { font-family: var(--mono); font-size: 12px; }
+  .heat { display: inline-block; width: 64px; height: 8px; border-radius: 4px; background: var(--surface-2); vertical-align: middle; overflow: hidden; margin-right: 6px; }
+  .heat > i { display: block; height: 100%; }
+  .bars { display: grid; gap: 8px; }
+  .bar-row { display: grid; grid-template-columns: 160px 1fr 34px; gap: 8px; align-items: center; font-size: 13px; }
+  .bar-row .track { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+  .bar-row .track > i { display: block; height: 100%; border-radius: 5px; }
+  svg text { fill: var(--muted); font-size: 10px; }
+  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .form { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+  .form label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+  .form input, .form select { height: 32px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); min-width: 0; }
+  .login { max-width: 360px; margin: 14vh auto 0; }
+  .login .card { display: grid; gap: 12px; }
+  .login input { height: 38px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+  .err { color: var(--fail); font-size: 13px; min-height: 1.2em; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 9px 14px; border-radius: 8px; font-size: 13px; box-shadow: var(--shadow); }
+  .round { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .round:last-child { border-bottom: 0; }
+  .round .who { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .scroll { overflow-x: auto; }
+  @media (max-width: 560px) { header { flex-wrap: wrap; } header h1 { flex-basis: 100%; } header h1 small { display: none; } }
+  @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .two { grid-template-columns: minmax(0, 1fr); } .bar-row { grid-template-columns: 110px 1fr 30px; } }
+</style>
+</head>
+<body>
+<div id="login" class="login wrap" hidden>
+  <form class="card" id="login-form">
+    <div style="display:flex;align-items:center;gap:10px"><span class="logo">P</span><b>Panda QA · Admin</b></div>
+    <input type="password" id="senha" placeholder="Senha do admin" autocomplete="current-password" autofocus>
+    <div class="err" id="login-err"></div>
+    <button class="btn primary" type="submit">Entrar</button>
+  </form>
+</div>
+<div id="app" class="wrap" hidden></div>
+<div id="toast" class="toast" hidden></div>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const pct = (x) => (x == null ? '–' : `${(x * 100).toFixed(1).replace('.', ',')}%`);
+const hora = (t) => new Date(t).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+const ORIGEM = { teste: 'Ajustar o teste', site: 'Problema no site', ambiente: 'Ambiente' };
+let senha = '';
+try { senha = sessionStorage.getItem('pqa-senha') || ''; } catch {}
+let dados = null;
+
+function toast(t) {
+  const el = $('#toast');
+  el.textContent = t;
+  el.hidden = false;
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => { el.hidden = true; }, 3000);
+}
+
+async function api(acao, extra = {}) {
+  const r = await fetch('/api/admin', { method: 'POST', headers: { 'content-type': 'application/json', 'x-senha': senha }, body: JSON.stringify({ acao, ...extra }) });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401) { sair(); throw new Error(d.erro || 'Senha errada'); }
+  if (!r.ok) throw new Error(d.erro || `Erro ${r.status}`);
+  return d;
+}
+
+function sair() {
+  senha = '';
+  try { sessionStorage.removeItem('pqa-senha'); } catch {}
+  $('#app').hidden = true;
+  $('#login').hidden = false;
+}
+
+$('#login-form').onsubmit = async (e) => {
+  e.preventDefault();
+  senha = $('#senha').value;
+  $('#login-err').textContent = '';
+  try {
+    await carregar();
+    try { sessionStorage.setItem('pqa-senha', senha); } catch {}
+  } catch (err) {
+    $('#login-err').textContent = err.message;
+  }
+};
+
+async function carregar() {
+  dados = await api('painel');
+  $('#login').hidden = true;
+  $('#app').hidden = false;
+  render();
+}
+
+// Mesmo apelido que a extensão calcula (lib/anon.js): "s" + FNV-1a do endereço, em base 36.
+function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return h >>> 0;
+}
+function aliasDe(texto) {
+  let t = String(texto || '').trim();
+  if (!/^https?:\/\//i.test(t)) t = 'https://' + t;
+  return 's' + fnv1a(new URL(t).origin.toLowerCase()).toString(36);
+}
+
+const corTaxa = (t) => (t >= 0.5 ? 'var(--fail)' : t >= 0.2 ? 'var(--warn)' : 'var(--ok)');
+
+function linhaDoTempo(linha) {
+  const W = 720, H = 140, pad = 22;
+  const max = Math.max(1, ...linha.map((h) => h.total));
+  const bw = (W - pad) / linha.length;
+  const bars = linha.map((h, i) => {
+    const x = pad + i * bw;
+    const ht = (h.total / max) * (H - 30);
+    const hf = (h.falhas / max) * (H - 30);
+    return `<rect x="${x + 1}" y="${H - 18 - ht}" width="${bw - 2}" height="${ht}" rx="2" fill="var(--accent)" opacity=".28"><title>${hora(h.at)}: ${h.total} execuções, ${h.falhas} falhas</title></rect>
+      <rect x="${x + 1}" y="${H - 18 - hf}" width="${bw - 2}" height="${hf}" rx="2" fill="var(--fail)"><title>${hora(h.at)}: ${h.falhas} falhas</title></rect>`;
+  }).join('');
+  const marcas = [0, 12, 24, 36, 47].map((i) => `<text x="${i === 47 ? W : pad + i * bw}" y="${H - 4}" text-anchor="${i === 47 ? 'end' : 'start'}">${new Date(linha[i].at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Execuções e falhas por hora nas últimas 48 horas">
+    <text x="0" y="12">${max}</text><line x1="${pad}" x2="${W}" y1="${H - 18}" y2="${H - 18}" stroke="var(--border)"/>${bars}${marcas}</svg>
+    <div class="row-actions" style="font-size:12px;color:var(--muted)"><span class="pill" style="background:color-mix(in srgb,var(--accent) 28%,transparent)">execuções</span><span class="pill bad">falhas</span></div>`;
+}
+
+function graficoVersoes(versoes, atual) {
+  if (versoes.length < 2) return '<div class="empty">O gráfico aparece a partir da segunda versão do modelo.</div>';
+  const W = 520, H = 150, p = 30;
+  const accs = versoes.map((v) => v.acuracia);
+  const lo = Math.max(0, Math.min(...accs) - 0.02), hi = Math.min(1, Math.max(...accs) + 0.01);
+  const x = (i) => p + (i / (versoes.length - 1)) * (W - p - 10);
+  const y = (a) => 10 + (1 - (a - lo) / (hi - lo || 1)) * (H - 40);
+  const pts = versoes.map((v, i) => `${x(i)},${y(v.acuracia)}`).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Acerto do modelo por versão">
+    <text x="0" y="${y(hi) + 4}">${pct(hi)}</text><text x="0" y="${y(lo) + 4}">${pct(lo)}</text>
+    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    ${versoes.map((v, i) => `<circle cx="${x(i)}" cy="${y(v.acuracia)}" r="${v.versao === atual ? 5 : 3.5}" fill="${v.versao === atual ? 'var(--accent)' : 'var(--surface)'}" stroke="var(--accent)" stroke-width="2"><title>v${v.versao}: ${pct(v.acuracia)}</title></circle>
+      <text x="${x(i) - 6}" y="${H - 8}">v${v.versao}</text>`).join('')}
+  </svg>`;
+}
+
+function render() {
+  const d = dados;
+  const r = d.radar;
+  const taxa = r.resumo.execucoes ? r.resumo.falhas / r.resumo.execucoes : null;
+  const nomes = d.config.sites || {};
+  $('#app').innerHTML = `
+  <header>
+    <h1><span class="logo">P</span>Panda QA · Admin <small>atualizado ${new Date().toLocaleTimeString('pt-BR')}</small></h1>
+    <button class="btn" data-a="tema" title="Trocar tema">${document.documentElement.dataset.theme === 'dark' ? '☀ Claro' : '☾ Escuro'}</button>
+    <button class="btn" data-a="recarregar">Atualizar</button>
+    <button class="btn" data-a="sair">Sair</button>
+  </header>
+
+  <div class="grid kpis">
+    <div class="card kpi"><div class="label">Modelo do time</div><div class="val">v${d.atual.versao}</div><div class="hint">acerta ${pct(d.atual.acuracia)} nos casos de referência</div></div>
+    <div class="card kpi"><div class="label">Execuções nas últimas 24 h</div><div class="val">${r.resumo.execucoes}</div><div class="hint">${r.resumo.falhas} falhas (${pct(taxa)}) · ${r.resumo.sites} site(s)</div></div>
+    <div class="card kpi"><div class="label">QAs ativos (24 h)</div><div class="val">${r.resumo.qas}</div><div class="hint">tempo médio por execução ${(r.resumo.tempoMedio / 1000).toFixed(1).replace('.', ',')} s</div></div>
+    <div class="card kpi"><div class="label">Quebras detectadas agora</div><div class="val" style="color:${r.alertas.length ? 'var(--fail)' : 'var(--ok)'}">${r.alertas.length}</div><div class="hint">janela de ${d.config.janelaHoras} h comparada aos 7 dias antes</div></div>
+  </div>
+
+  <section>
+    <div class="title">Radar das lojas</div>
+    <div class="card">
+      <h2>Quebras novas<span class="sub">${d.clickup ? (d.config.autoBug ? 'bug automático no ClickUp ligado' : 'bug no ClickUp com um clique') : 'ClickUp não configurado no servidor'}</span></h2>
+      ${r.alertas.length ? r.alertas.map((a) => `
+        <div class="alert">
+          <div><b>${esc(a.nome)}</b> <code>${esc(a.fluxo)}</code> <span class="pill ${a.origem || ''}">${esc(a.rotulo)}</span></div>
+          <div class="meta">${a.falhas} de ${a.total} execuções falharam desde ${hora(a.desde)}, com ${a.clientes} QAs. ${a.taxaAntes == null ? 'Sem histórico antes.' : `Antes falhava ${pct(a.taxaAntes)} (${a.execucoesAntes} execuções).`}${a.origem ? ` Origem provável: ${ORIGEM[a.origem]}.` : ''}</div>
+          <div class="act">${a.bug ? `<a class="btn small" href="${esc(a.bug.url)}" target="_blank">Ver bug</a>` : `<button class="btn small primary" data-a="bug" data-chave="${esc(a.chave)}" ${d.clickup ? '' : 'disabled title="Configure CLICKUP_TOKEN e CLICKUP_LISTA"'}>Abrir bug no ClickUp</button>`}</div>
+        </div>`).join('') : '<div class="empty">Nenhuma quebra nova. Tudo que falha agora já falhava antes, ou foi um QA só.</div>'}
+    </div>
+    <div class="grid two" style="margin-top:14px">
+      <div class="card"><h2>Execuções por hora<span class="sub">últimas 48 h</span></h2>${linhaDoTempo(r.linha)}</div>
+      <div class="card"><h2>Por que falhou<span class="sub">24 h, diagnóstico do modelo</span></h2>
+        ${r.categorias.length ? `<div class="bars">${r.categorias.map((c) => `<div class="bar-row"><span title="${esc(ORIGEM[c.origem] || '')}">${esc(c.rotulo)}</span><span class="track"><i style="width:${(c.n / r.categorias[0].n) * 100}%;background:${c.origem === 'site' ? 'var(--fail)' : c.origem === 'ambiente' ? 'var(--warn)' : 'var(--accent)'}"></i></span><span class="num">${c.n}</span></div>`).join('')}</div>` : '<div class="empty">Sem falhas nas últimas 24 h.</div>'}
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px"><h2>Mapa de calor<span class="sub">site × trecho da URL, 24 h</span></h2>
+      ${r.mapa.length ? `<div class="scroll"><table><thead><tr><th>Site</th><th>Trecho</th><th class="num">Execuções</th><th class="num">Testes</th><th>Falhas</th><th>Motivo mais comum</th></tr></thead><tbody>
+        ${r.mapa.map((m) => `<tr><td>${esc(m.nome)}${m.nome === m.site ? ' <span class="pill" title="Dê um nome em Sites, abaixo">sem nome</span>' : ''}</td><td><code>${esc(m.fluxo)}</code></td><td class="num">${m.total}</td><td class="num">${m.testes}</td>
+          <td><span class="heat"><i style="width:${Math.max(4, m.taxa * 100)}%;background:${corTaxa(m.taxa)}"></i></span>${pct(m.taxa)}</td><td>${m.categoria ? esc((r.categorias.find((c) => c.cat === m.categoria) || {}).rotulo || m.categoria) : '–'}</td></tr>`).join('')}
+      </tbody></table></div>` : '<div class="empty">Ainda sem sinais. Ligue o "Radar das lojas" nas Configurações da extensão.</div>'}
+    </div>
+  </section>
+
+  <section>
+    <div class="title">Aprendizado federado</div>
+    <div class="grid two">
+      <div class="card"><h2>Acerto por versão</h2>${graficoVersoes(d.versoes, d.atual.versao)}
+        <div class="scroll"><table style="margin-top:10px"><thead><tr><th>Versão</th><th>Publicada</th><th class="num">QAs</th><th class="num">Correções</th><th class="num">Acerto</th><th></th></tr></thead><tbody>
+          ${[...d.versoes].reverse().map((v) => `<tr><td><b>v${v.versao}</b>${v.versao === d.atual.versao ? ' <span class="pill ok">em uso</span>' : ''}</td><td>${hora(v.at)}</td><td class="num">${v.participantes ?? '–'}</td><td class="num">${v.exemplos ?? '–'}</td><td class="num">${pct(v.acuracia)}</td>
+            <td>${v.versao === d.atual.versao ? '' : `<button class="btn small" data-a="ativar" data-versao="${v.versao}">Usar esta</button>`}</td></tr>`).join('')}
+        </tbody></table></div>
+      </div>
+      <div class="card"><h2>Contribuições pendentes<span class="sub">rodada fecha com ${d.config.minClientes} QA(s)</span></h2>
+        ${d.pendentes.length ? `<table><tbody>${d.pendentes.map((p) => `<tr><td class="mono">${esc(p.cliente)}</td><td>${hora(p.at)}</td><td class="num"><button class="btn small" data-a="descartar" data-id="${esc(p.id)}">Descartar</button></td></tr>`).join('')}</tbody></table>
+          <div class="row-actions" style="margin-top:10px"><button class="btn small primary" data-a="rodada">Fechar rodada agora</button></div>` : '<div class="empty">Nenhuma. Quando um QA corrige um diagnóstico, a diferença de pesos aparece aqui.</div>'}
+        <h2 style="margin-top:18px">Últimas rodadas</h2>
+        ${d.rodadas.length ? d.rodadas.map((x) => `<div class="round">
+          <div><b>Rodada ${x.n}</b> · ${hora(x.at)} · ${x.publicado ? `<span class="pill ok">publicou v${x.publicado}</span>` : `<span class="pill bad">não publicou</span>`} · ${pct(x.accBase)} → ${pct(x.accNova)}</div>
+          <div class="who">${x.aceitos.map((a) => `✓ ${esc(a.cliente)} (${a.n} corr., ${pct(a.acuracia)}${a.limitada ? ', limitada' : ''})`).join(' · ')}${x.rejeitados.map((a) => ` · ✕ ${esc(a.cliente)}: ${esc(a.motivo)}`).join('')}${x.motivo ? ` · ${esc(x.motivo)}` : ''}</div>
+        </div>`).join('') : '<div class="empty">Nenhuma rodada ainda.</div>'}
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="title">Configuração</div>
+    <div class="grid two">
+      <div class="card"><h2>Sites</h2>
+        <p style="margin:0 0 10px;color:var(--muted);font-size:13px">O servidor só conhece o apelido de cada loja. Digite o endereço aqui: o apelido é calculado no seu navegador e só o nome que você der é salvo.</p>
+        <form class="form" id="site-form"><label>Endereço da loja<input id="site-url" placeholder="staging.mueller.com.br" required></label><label>Nome<input id="site-nome" placeholder="Mueller · staging" required></label><button class="btn primary" type="submit">Salvar</button></form>
+        ${Object.keys(nomes).length ? `<table style="margin-top:10px"><tbody>${Object.entries(nomes).map(([k, v]) => `<tr><td>${esc(v)}</td><td class="mono">${esc(k)}</td><td class="num"><button class="btn small" data-a="site-del" data-alias="${esc(k)}">Remover</button></td></tr>`).join('')}</tbody></table>` : ''}
+      </div>
+      <div class="card"><h2>Regras</h2>
+        <form class="form" id="cfg-form">
+          <label>QAs para fechar rodada<input type="number" id="cfg-min" min="1" max="20" value="${d.config.minClientes}" style="width:90px"></label>
+          <label>Janela do radar (h)<input type="number" id="cfg-jan" min="1" max="48" value="${d.config.janelaHoras}" style="width:90px"></label>
+          <label>Bug automático no ClickUp<select id="cfg-auto" ${d.clickup ? '' : 'disabled title="Configure CLICKUP_TOKEN e CLICKUP_LISTA no servidor"'}><option value="0">Desligado (padrão)</option><option value="1" ${d.config.autoBug ? 'selected' : ''}>Ligado</option></select></label>
+          <button class="btn primary" type="submit">Salvar</button>
+        </form>
+        <p style="margin:10px 0 0;color:var(--muted);font-size:13px">${d.config.autoBug
+          ? '<b style="color:var(--warn)">Ligado:</b> cada quebra nova vira uma tarefa na lista do ClickUp do servidor (CLICKUP_LISTA), uma vez só por quebra.'
+          : '<b>Desligado:</b> nenhuma tarefa é criada sozinha. Você abre o bug com o botão em cada quebra, se quiser.'}${d.clickup ? '' : ' O ClickUp ainda não está configurado no servidor.'}</p>
+      </div>
+    </div>
+  </section>`;
+
+  $('#site-form').onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api('site', { alias: aliasDe($('#site-url').value), nome: $('#site-nome').value });
+      toast('Site salvo.');
+      await carregar();
+    } catch (err) { toast(err.message); }
+  };
+  $('#cfg-form').onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const auto = $('#cfg-auto').value === '1';
+      if (auto && !d.config.autoBug && !confirm('Ligar o bug automático? Cada quebra nova detectada pelo radar vai virar uma tarefa no ClickUp sem você clicar.')) return;
+      await api('config', { minClientes: $('#cfg-min').value, janelaHoras: $('#cfg-jan').value, autoBug: auto });
+      toast('Regras salvas.');
+      await carregar();
+    } catch (err) { toast(err.message); }
+  };
+}
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-a]');
+  if (!b) return;
+  const a = b.dataset.a;
+  try {
+    if (a === 'sair') return sair();
+    if (a === 'tema') {
+      const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = t;
+      try { localStorage.setItem('pqa-tema', t); } catch {}
+      return render();
+    }
+    b.disabled = true;
+    if (a === 'ativar' && confirm(`Colocar a v${b.dataset.versao} como modelo do time? As extensões baixam em até 15 min.`)) { await api('ativar', { versao: Number(b.dataset.versao) }); toast(`v${b.dataset.versao} em uso.`); }
+    if (a === 'rodada') { const r = await api('rodada'); toast(r.publicado ? `Rodada fechada: v${r.publicado} publicada.` : `Rodada fechada sem publicar: ${r.motivo}`); }
+    if (a === 'descartar') { await api('descartar', { id: b.dataset.id }); toast('Contribuição descartada.'); }
+    if (a === 'bug') { const bug = await api('bug', { chave: b.dataset.chave }); toast('Bug aberto no ClickUp.'); window.open(bug.url, '_blank'); }
+    if (a === 'site-del') await api('site', { alias: b.dataset.alias, nome: '' });
+    await carregar();
+  } catch (err) {
+    toast(err.message);
+    b.disabled = false;
+  }
+});
+
+if (senha) carregar().catch(() => sair());
+else sair();
+setInterval(() => { if (senha && !document.hidden) carregar().catch(() => {}); }, 60000);
+</script>
+</body>
+</html>
