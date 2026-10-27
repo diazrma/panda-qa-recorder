@@ -433,6 +433,40 @@ try {
     assert.ok(backup.runs >= 4);
   });
   await check('senha não vai no backup', async () => assert.equal(backup.senha, ''));
+  const fullBackup = await panel.evaluate(async () => {
+    const { buildFullBackup, restoreFullBackup } = await import('../lib/backup.js');
+    const { settings = {} } = await chrome.storage.local.get('settings');
+    await chrome.storage.local.set({ settings: { ...settings, clickupToken: 'pk_backup-secreto', teamKey: 'chave-backup-secreta' } });
+    const secret = (await chrome.storage.local.get('vars')).vars.find((v) => v.key === 'senha')?.value;
+    const data = await buildFullBackup('senha segura do backup');
+    const text = JSON.stringify(data);
+    await chrome.storage.local.set({ tests: [], vars: [], settings: { clickupToken: '', teamKey: '' } });
+    let wrongPasswordRejected = false;
+    try {
+      await restoreFullBackup(data, 'senha errada');
+    } catch (error) {
+      wrongPasswordRejected = /Confira a senha/.test(error.message);
+    }
+    const restored = await restoreFullBackup(data, 'senha segura do backup');
+    const saved = await chrome.storage.local.get(['tests', 'vars', 'settings']);
+    return {
+      encrypted: !text.includes('pk_backup-secreto') && !text.includes('chave-backup-secreta') && (!secret || !text.includes(secret)),
+      wrongPasswordRejected,
+      restored,
+      tests: saved.tests.length,
+      clickupToken: saved.settings.clickupToken,
+      teamKey: saved.settings.teamKey,
+      secret: saved.vars.find((v) => v.key === 'senha')?.value,
+    };
+  });
+  await check('backup completo protege chaves e restaura tarefas, variáveis e configurações', async () => {
+    assert.ok(fullBackup.encrypted);
+    assert.ok(fullBackup.wrongPasswordRejected);
+    assert.equal(fullBackup.tests, backup.before);
+    assert.equal(fullBackup.clickupToken, 'pk_backup-secreto');
+    assert.equal(fullBackup.teamKey, 'chave-backup-secreta');
+    assert.equal(fullBackup.secret, 'Senha123');
+  });
 
   const md = await panel.evaluate(async () => {
     const { toMarkdown, toPlaywright } = await import('../lib/exporters.js');

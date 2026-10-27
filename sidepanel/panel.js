@@ -10,7 +10,7 @@ import { encodeShare, decodeShare } from '../lib/share.js';
 import { CATEGORIES, diagnose, learn, failureOf, learnedCount } from '../lib/diagnosis.js';
 import { BUILTINS } from '../lib/vars.js';
 import { toReportHtml, toSummaryText, LOG_KIND } from '../lib/report.js';
-import { isBackup, restoreBackup } from '../lib/backup.js';
+import { buildFullBackup, isBackup, isFullBackup, restoreBackup, restoreFullBackup } from '../lib/backup.js';
 import { parseTaskRef, getTask, searchTasks, logTime, comment, attach, setStatus, taskTimes, fmtDuration } from '../lib/clickup.js';
 import { syncTeam, pushContribution, teamConfig, uploadReport } from '../lib/team.js';
 
@@ -733,8 +733,10 @@ function renderSettings() {
         : 'Nenhum backup feito ainda.'}</div>
       <div class="banner-actions" style="margin-top:0">
         <button class="btn" data-action="backup-now">${ICON.download}Fazer backup agora</button>
+        <button class="btn" data-action="backup-full">${ICON.download}Backup completo protegido</button>
         <button class="btn" data-action="restore">${ICON.upload}Restaurar backup</button>
       </div>
+      <small>O backup completo inclui chaves e configurações confidenciais, criptografadas com uma senha escolhida por você. Guarde essa senha: sem ela não será possível restaurar.</small>
     </div>`;
 }
 
@@ -1213,6 +1215,7 @@ const actions = {
       { label: 'Importar testes ou backup (.json)', icon: ICON.upload, run: () => fileInput.click() },
       { label: 'Colar teste compartilhado', icon: ICON.copy, run: () => pasteShared() },
       { label: 'Fazer backup agora', icon: ICON.download, run: () => actions['backup-now']() },
+      { label: 'Backup completo protegido', icon: ICON.download, run: () => actions['backup-full']() },
       { label: 'Exportar todos (.json)', icon: ICON.download, run: () => {
         if (!state.tests.length) throw new Error('Nenhum teste para exportar.');
         download(`panda-qa-recorder-${new Date().toISOString().slice(0, 10)}.json`, toJSON(state.tests));
@@ -1236,6 +1239,16 @@ const actions = {
   async 'backup-now'() {
     const res = await send('backup:now');
     toast(`Backup salvo em Downloads/${res.filename}`);
+  },
+  async 'backup-full'() {
+    const password = prompt('Crie uma senha com pelo menos 8 caracteres para criptografar o backup completo:');
+    if (password == null) return;
+    const confirmation = prompt('Digite novamente a senha do backup:');
+    if (confirmation == null) return;
+    if (password !== confirmation) throw new Error('As senhas não conferem. O backup não foi criado.');
+    const backup = await buildFullBackup(password);
+    download(`panda-qa-recorder-completo-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(backup, null, 2));
+    toast('Backup completo protegido baixado. Guarde o arquivo e a senha em local seguro.');
   },
   restore() {
     fileInput.click();
@@ -1477,6 +1490,14 @@ fileInput.addEventListener('change', async () => {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
+    if (isFullBackup(data)) {
+      const password = prompt('Digite a senha usada para proteger este backup completo:');
+      if (password == null) return;
+      const restored = await restoreFullBackup(data, password);
+      await load();
+      toast(`Backup completo restaurado: ${restored.added} teste(s) novo(s), ${restored.updated} atualizado(s).`);
+      return;
+    }
     if (isBackup(data)) {
       const r = await restoreBackup(data);
       toast(`Backup restaurado: ${r.added} teste(s) novo(s), ${r.updated} atualizado(s).`);

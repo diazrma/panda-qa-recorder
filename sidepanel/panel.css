@@ -425,6 +425,7 @@ dialog::backdrop { background: rgba(10, 12, 16, .45); }
 .step-healed { margin-top: 4px; color: var(--warn); font-size: 12px; display: grid; gap: 4px; justify-items: start; }
 .settings .check { display: flex; align-items: flex-start; gap: 8px; font-weight: 550; }
 .settings .check input { width: auto; height: auto; margin-top: 3px; }
+.settings > small { color: var(--muted); font-weight: 400; }
 
 .update-pill { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
 .update-steps { margin: 0; padding-left: 18px; display: grid; gap: 4px; }

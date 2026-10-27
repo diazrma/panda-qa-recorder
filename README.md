@@ -138,9 +138,11 @@ Botão **Compartilhar** no teste:
 
 ## Backup
 
-Em Configurações > Backup. Quando algum teste muda, a extensão salva sozinha `Downloads/panda-qa-recorder/backup-AAAA-MM-DD.json` (um arquivo por dia, padrão a cada 6 h; dá para mudar para 1 h, 24 h ou desligar). O arquivo fica fora do Chrome, então sobrevive a limpar dados, reinstalar a extensão ou trocar de computador. Leva todos os testes, histórico, resultados e variáveis, menos as senhas.
+Em Configurações > Backup. Quando algum teste muda, a extensão salva sozinha `Downloads/panda-qa-recorder/backup-AAAA-MM-DD.json` (um arquivo por dia, padrão a cada 6 h; dá para mudar para 1 h, 24 h ou desligar). Esse backup inclui testes, histórico, resultados e variáveis não secretas.
 
-Para recuperar: **Restaurar backup** e escolha o arquivo. Nada é apagado: testes que não existem são adicionados, e os que existem só são atualizados se a versão do backup for mais nova. Depois, preencha de novo as variáveis secretas (`senha`).
+Para manter tudo ao atualizar, substitua os arquivos na mesma pasta da extensão e clique em **Recarregar extensão**. Isso preserva os dados no Chrome. Se for remover a extensão, trocar de pasta ou computador, primeiro use **Backup completo protegido**: escolha uma senha e guarde o arquivo baixado e essa senha. Esse backup criptografado inclui testes, histórico, variáveis secretas, token do ClickUp, chave do time e demais configurações.
+
+Para recuperar qualquer backup: **Restaurar backup** e escolha o arquivo. No backup completo, informe a senha escolhida. Nada é apagado: testes que não existem são adicionados e os existentes só são atualizados se o backup for mais novo.
 
 ## Exportar e importar
 

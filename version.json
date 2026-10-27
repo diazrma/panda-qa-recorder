@@ -1,5 +1,5 @@
 {
-  "version": "1.5.0",
-  "notes": "Novidade no ClickUp: pesquise tarefas pelo nome ou ID, vincule direto pelo painel e altere o status da tarefa pelo dropdown com as opções da lista.",
+  "version": "1.5.1",
+  "notes": "Backup completo criptografado por senha para preservar testes, histórico, variáveis secretas e chaves ao reinstalar ou trocar de pasta. Também inclui busca de tarefas do ClickUp e seleção de status.",
   "download": "https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip"
 }
