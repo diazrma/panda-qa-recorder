@@ -83,7 +83,7 @@ Em Configurações > Time, informe o endereço do servidor e a chave do time.
 
 - **Link do relatório**: em Compartilhar > Link do relatório (ou **Copiar link do relatório** na falha), o relatório vai para o servidor e vira um link individual, `https://<servidor>/relatorio/<número>`, com botão **Baixar PDF**. O link só abre com a chave do time: na primeira vez a página pede a chave e o navegador fica liberado por 90 dias. Gerar uma chave nova no admin derruba todos os acessos. Com o servidor configurado, o comentário do ClickUp leva esse link em vez do HTML anexado.
 
-O painel do servidor (página inicial, protegida pela senha do admin) mostra os alertas, o mapa de calor por site e trecho, as rodadas do aprendizado, permite voltar o modelo para uma versão anterior e abrir o bug de um alerta no ClickUp. O bug automático vem desligado e só cria tarefa quando é ligado no painel.
+O painel do servidor (página inicial, protegida pela senha do admin) mostra os alertas, o mapa de calor por site e trecho, as rodadas do aprendizado, permite voltar o modelo para uma versão anterior e abrir o bug de um alerta no ClickUp. Em **Limpeza do time**, o botão **Resetar aprendizado e sites** apaga o aprendizado federado e os dados históricos do radar, remove os nomes dos sites e publica novamente o modelo base. Isso não apaga testes locais das extensões. O bug automático vem desligado e só cria tarefa quando é ligado no painel.
 
 ### Subir o servidor
 

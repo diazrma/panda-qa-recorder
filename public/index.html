@@ -302,6 +302,11 @@ function render() {
           : '<b>Desligado:</b> nenhuma tarefa é criada sozinha. Você abre o bug com o botão em cada quebra, se quiser.'}${d.clickup ? '' : ' O ClickUp ainda não está configurado no servidor.'}</p>
       </div>
     </div>
+    <div class="card" style="margin-top:14px;border-color:color-mix(in srgb, var(--fail) 35%, var(--border))">
+      <h2>Limpeza do time</h2>
+      <p style="margin:0 0 10px;color:var(--muted);font-size:13px">Apaga o aprendizado federado e as contribuições pendentes, limpa o histórico de rodadas e do radar, remove os nomes dos sites e publica o modelo base novamente. Não apaga os testes, variáveis ou configurações locais das extensões.</p>
+      <button class="btn" data-a="resetar" style="color:var(--fail)">Resetar aprendizado e sites</button>
+    </div>
   </section>`;
 
   $('#site-form').onsubmit = async (e) => {
@@ -342,6 +347,13 @@ document.addEventListener('click', async (e) => {
     if (a === 'descartar') { await api('descartar', { id: b.dataset.id }); toast('Contribuição descartada.'); }
     if (a === 'bug') { const bug = await api('bug', { chave: b.dataset.chave }); toast('Bug aberto no ClickUp.'); window.open(bug.url, '_blank'); }
     if (a === 'site-del') await api('site', { alias: b.dataset.alias, nome: '' });
+    if (a === 'resetar') {
+      const confirmou = confirm('Isso é irreversível: o histórico do aprendizado, contribuições, rodadas, dados do radar e nomes de sites serão apagados. O modelo base será publicado novamente. Os testes nas extensões não serão apagados. Continuar?');
+      if (!confirmou) { b.disabled = false; return; }
+      const resultado = await api('resetar');
+      chaveVisivel = '';
+      toast(`Reset concluído: modelo base v${resultado.aprendizado.versao} publicado; dados do radar e sites limpos.`);
+    }
     if (a === 'chave-ver') {
       chaveVisivel = chaveVisivel ? '' : (await api('chave')).chave;
       return render();

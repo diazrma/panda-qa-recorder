@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -10,12 +10,15 @@ process.env.ADMIN_SENHA = 'senha-admin-123456';
 delete process.env.BLOB_READ_WRITE_TOKEN;
 
 const { criarServidor } = await import('../dev.js');
+const { gravar, listar, lerJSON } = await import('../armazem.js');
+const fed = await import('../federado.js');
 const srv = criarServidor();
 await new Promise((r) => srv.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${srv.address().port}`;
 const modelo = (chave) => fetch(`${base}/api/modelo`, { headers: { 'x-equipe': chave } }).then((r) => r.status);
-const admin = (acao) => fetch(`${base}/api/admin`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-senha': process.env.ADMIN_SENHA }, body: JSON.stringify({ acao }) }).then((r) => r.json());
+const admin = (acao, extra = {}) => fetch(`${base}/api/admin`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-senha': process.env.ADMIN_SENHA }, body: JSON.stringify({ acao, ...extra }) }).then((r) => r.json());
 const entrar = (id, chave) => fetch(`${base}/relatorio/${id}`, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `chave=${chave}` });
+after(() => new Promise((resolve, reject) => srv.close((error) => error ? reject(error) : resolve())));
 
 test('sem chave gerada no admin vale a da Vercel', async () => {
   assert.equal((await admin('chave')).origem, 'vercel');
@@ -37,5 +40,33 @@ test('gerar nova chave no admin troca na hora e derruba a antiga (API e links de
   const painel = await admin('painel');
   assert.equal(painel.chave.origem, 'admin');
   assert.equal(painel.chave.chave, undefined); // o painel não manda a chave; só o "Mostrar"
-  srv.close();
+});
+
+test('reset admin limpa aprendizado e radar, mas mantém a chave e regras do time', async () => {
+  const inicial = await fed.garantirInicial();
+  await admin('site', { alias: 'site123', nome: 'Loja de teste' });
+  await gravar('contrib/1/1-qa.json', { id: '1-qa', cliente: 'qa', base: 1 });
+  await gravar('estado/rodadas.json', [{ n: 1, at: Date.now() }]);
+  await gravar('sinais/2026-10-27/1-teste.json', [{ s: 'site123', st: 'failed' }]);
+  await gravar('estado/bugs.json', { erro: { id: '1', url: 'https://clickup.test/task' } });
+
+  const reset = await admin('resetar');
+  assert.equal(reset.ok, true);
+  assert.ok(reset.aprendizado.versao > inicial.versao);
+  assert.equal(reset.aprendizado.versoesRemovidas, 1);
+  assert.equal(reset.aprendizado.contribuicoesRemovidas, 1);
+  assert.equal(reset.aprendizado.rodadasRemovidas, 1);
+  assert.equal(reset.sinaisRemovidos, 1);
+  assert.equal(reset.bugsRemovidos, 1);
+  assert.equal(reset.sitesRemovidos, 1);
+  assert.deepEqual((await fed.listarVersoes()).map((v) => v.versao), [reset.aprendizado.versao]);
+  assert.equal((await fed.listarVersoes())[0].origem, 'modelo base após reset do aprendizado');
+  assert.deepEqual(await listar('contrib/'), []);
+  assert.deepEqual(await listar('sinais/'), []);
+  assert.deepEqual(await lerJSON('estado/rodadas.json', []), []);
+  assert.deepEqual(await lerJSON('estado/bugs.json', {}), {});
+  const painel = await admin('painel');
+  assert.deepEqual(painel.config.sites, {});
+  assert.equal(painel.config.minClientes, 2);
+  assert.equal(painel.chave.chave, undefined);
 });

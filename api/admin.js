@@ -9,7 +9,7 @@
 //   chave                       -> mostra a chave do time (a que os QAs colam na extensão)
 //   trocarChave                 -> gera uma chave nova; a antiga para de funcionar na hora
 import { rota, responder, exigirAdmin, lerCorpo } from '../servidor/http.js';
-import { garantirInicial, config, salvarConfig, ativarVersao, fecharRodada, listarVersoes } from '../servidor/federado.js';
+import { garantirInicial, config, salvarConfig, ativarVersao, fecharRodada, listarVersoes, resetarAprendizado } from '../servidor/federado.js';
 import { listar, lerJSON, apagar } from '../servidor/armazem.js';
 import { painelRadar, abrirBug } from '../servidor/sinais.js';
 import { clickupLigado } from '../servidor/clickup.js';
@@ -68,5 +68,18 @@ export default rota(async (req, res) => {
   if (d.acao === 'chave') return responder(res, 200, await chaveDoTime());
   if (d.acao === 'trocarChave') return responder(res, 200, await trocarChave());
   if (d.acao === 'bug') return responder(res, 200, await abrirBug(String(d.chave || ''), cfg));
+  if (d.acao === 'resetar') {
+    const [sinais, bugs] = await Promise.all([listar('sinais/'), listar('estado/bugs.json')]);
+    const aprendizado = await resetarAprendizado();
+    await apagar([...sinais, ...bugs].map((item) => item.chave));
+    await salvarConfig({ ...cfg, sites: {} });
+    return responder(res, 200, {
+      ok: true,
+      aprendizado,
+      sinaisRemovidos: sinais.length,
+      bugsRemovidos: bugs.length,
+      sitesRemovidos: Object.keys(cfg.sites || {}).length,
+    });
+  }
   responder(res, 400, { erro: 'ação desconhecida' });
 });

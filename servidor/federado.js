@@ -217,3 +217,37 @@ export async function ativarVersao(versao) {
 export async function listarVersoes() {
   return (await lerTodosJSON('versoes/')).map((m) => m.dados).sort((a, b) => a.versao - b.versao);
 }
+
+/** Descarta o aprendizado do time e publica o modelo base como a versão mais recente. */
+export async function resetarAprendizado() {
+  const atual = await estado();
+  const historico = await listarVersoes();
+  const versao = Math.max(atual?.versao || 0, ...historico.map((item) => item.versao)) + 1;
+  const dir = path.resolve(import.meta.dirname, '../lib/model');
+  const [json, pesos] = await Promise.all([
+    fs.readFile(path.join(dir, 'model.json')),
+    fs.readFile(path.join(dir, 'weights.bin')),
+  ]);
+  const base = await modeloDeArquivos(json, pesos);
+  const acerto = acuracia(base);
+  base.dispose();
+
+  const [modelos, versoes, contribuicoes, rodadas] = await Promise.all([
+    listar('modelos/'),
+    listar('versoes/'),
+    listar('contrib/'),
+    listar('estado/rodadas.json'),
+  ]);
+  await apagar([...modelos, ...versoes, ...contribuicoes, ...rodadas].map((item) => item.chave));
+  const publicada = await publicar(versao, json, pesos, {
+    acuracia: acerto,
+    origem: 'modelo base após reset do aprendizado',
+    participantes: 0,
+  });
+  return {
+    ...publicada,
+    versoesRemovidas: versoes.length,
+    contribuicoesRemovidas: contribuicoes.length,
+    rodadasRemovidas: rodadas.length,
+  };
+}
