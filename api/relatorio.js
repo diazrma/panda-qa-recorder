@@ -1,12 +1,13 @@
 // POST /api/relatorio { test, run, diag?, shot? } (x-equipe) -> { id, url } link individual do relatório
 // GET  /relatorio/<id>  (reescrito para /api/relatorio?id=)  -> página do relatório com "Baixar PDF".
 //      Só abre para quem é do time: na primeira vez pede a chave do time (a mesma da extensão) e
-//      grava um cookie com a assinatura dela (não a chave). Trocar EQUIPE_CHAVE derruba todo acesso.
+//      grava um cookie com a assinatura dela (não a chave). Trocar a chave no admin derruba todo acesso.
 // POST /relatorio/<id> (formulário, campo "chave")   -> confere a chave e grava o cookie
 // O HTML é montado aqui com lib/report.js (texto escapado) e servido com CSP sem scripts de terceiros:
 // a extensão nunca manda HTML pronto, então um relatório não roda código no domínio do admin.
 import { randomInt, randomBytes, createHmac, timingSafeEqual } from 'node:crypto';
 import { rota, responder, exigirEquipe, lerCorpo, chaveDoTimeConfere, limite } from '../servidor/http.js';
+import { chaveDoTime } from '../servidor/chave.js';
 import { gravar, lerJSON } from '../servidor/armazem.js';
 import { toReportHtml } from '../lib/report.js';
 
@@ -37,13 +38,13 @@ const BARRA = (nonce) => `
 <script nonce="${nonce}">document.getElementById('pqa-pdf').onclick = () => window.print();</script>`;
 
 const COOKIE = 'pqa_time';
-const assinatura = () => createHmac('sha256', process.env.EQUIPE_CHAVE || '').update('pqa-relatorio-v1').digest('hex');
+const assinatura = async () => createHmac('sha256', (await chaveDoTime()).chave).update('pqa-relatorio-v1').digest('hex');
 
-function temAcesso(req) {
+async function temAcesso(req) {
   const c = String(req.headers.cookie || '').split(';').map((x) => x.trim()).find((x) => x.startsWith(COOKIE + '='));
   const veio = Buffer.from(c ? c.slice(COOKIE.length + 1) : '');
-  const certa = Buffer.from(assinatura());
-  return Boolean(process.env.EQUIPE_CHAVE) && veio.length === certa.length && timingSafeEqual(veio, certa);
+  const certa = Buffer.from(await assinatura());
+  return Boolean((await chaveDoTime()).chave) && veio.length === certa.length && timingSafeEqual(veio, certa);
 }
 
 function paginaChave(res, id, erro) {
@@ -74,19 +75,19 @@ export default rota(async (req, res) => {
   const idUrl = new URL(req.url, 'http://x').searchParams.get('id') || '';
   if (req.method === 'POST' && /^\d{18}$/.test(idUrl)) {
     const { chave } = await lerCorpo(req, 10_000);
-    if (!chaveDoTimeConfere(chave)) {
+    if (!(await chaveDoTimeConfere(chave))) {
       limite(req, 10, 15 * 60e3);
       return paginaChave(res, idUrl, 'Chave errada.');
     }
     const host = String(req.headers['x-forwarded-host'] || req.headers.host || '');
     const seguro = !/^(localhost|127\.)/.test(host);
-    res.setHeader('Set-Cookie', `${COOKIE}=${assinatura()}; Path=/relatorio; Max-Age=${90 * 86400}; HttpOnly; SameSite=Lax${seguro ? '; Secure' : ''}`);
+    res.setHeader('Set-Cookie', `${COOKIE}=${await assinatura()}; Path=/relatorio; Max-Age=${90 * 86400}; HttpOnly; SameSite=Lax${seguro ? '; Secure' : ''}`);
     res.statusCode = 303;
     res.setHeader('Location', `/relatorio/${idUrl}`);
     return res.end();
   }
   if (req.method === 'POST') {
-    exigirEquipe(req);
+    await exigirEquipe(req);
     const rel = limpar(await lerCorpo(req, 4_000_000));
     const id = novoId();
     await gravar(`relatorios/${id}.json`, rel);
@@ -96,7 +97,7 @@ export default rota(async (req, res) => {
   }
   const id = idUrl;
   if (!/^\d{18}$/.test(id)) return paginaChave(res, '0', 'Link inválido.');
-  if (!temAcesso(req)) return paginaChave(res, id);
+  if (!(await temAcesso(req))) return paginaChave(res, id);
   const rel = await lerJSON(`relatorios/${id}.json`);
   res.setHeader('Cache-Control', 'private, max-age=300');
   res.setHeader('X-Robots-Tag', 'noindex');

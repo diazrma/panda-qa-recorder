@@ -6,11 +6,14 @@
 //   config     { minClientes, janelaHoras, autoBug }
 //   site       { alias, nome }  -> dá nome a um site do radar (o servidor só conhece o apelido)
 //   bug        { chave }        -> abre no ClickUp o bug de um alerta do radar
+//   chave                       -> mostra a chave do time (a que os QAs colam na extensão)
+//   trocarChave                 -> gera uma chave nova; a antiga para de funcionar na hora
 import { rota, responder, exigirAdmin, lerCorpo } from '../servidor/http.js';
 import { garantirInicial, config, salvarConfig, ativarVersao, fecharRodada, listarVersoes } from '../servidor/federado.js';
 import { listar, lerJSON, apagar } from '../servidor/armazem.js';
 import { painelRadar, abrirBug } from '../servidor/sinais.js';
 import { clickupLigado } from '../servidor/clickup.js';
+import { chaveDoTime, trocarChave } from '../servidor/chave.js';
 
 export default rota(async (req, res) => {
   if (req.method !== 'POST') return responder(res, 405, { erro: 'use POST' });
@@ -32,6 +35,7 @@ export default rota(async (req, res) => {
       config: cfg,
       radar: await painelRadar(cfg),
       clickup: clickupLigado(),
+      chave: await chaveDoTime().then(({ at, origem }) => ({ at, origem })),
     });
   }
   if (d.acao === 'ativar') return responder(res, 200, await ativarVersao(d.versao));
@@ -61,6 +65,8 @@ export default rota(async (req, res) => {
     await salvarConfig({ ...cfg, sites });
     return responder(res, 200, { ok: true });
   }
+  if (d.acao === 'chave') return responder(res, 200, await chaveDoTime());
+  if (d.acao === 'trocarChave') return responder(res, 200, await trocarChave());
   if (d.acao === 'bug') return responder(res, 200, await abrirBug(String(d.chave || ''), cfg));
   responder(res, 400, { erro: 'ação desconhecida' });
 });

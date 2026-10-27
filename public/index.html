@@ -116,6 +116,7 @@ const ORIGEM = { teste: 'Ajustar o teste', site: 'Problema no site', ambiente: '
 let senha = '';
 try { senha = sessionStorage.getItem('pqa-senha') || ''; } catch {}
 let dados = null;
+let chaveVisivel = '';
 
 function toast(t) {
   const el = $('#toast');
@@ -274,6 +275,15 @@ function render() {
 
   <section>
     <div class="title">Configuração</div>
+    <div class="card" style="margin-bottom:14px"><h2>Chave do time<span class="sub">${d.chave.origem === 'admin' ? `gerada aqui em ${hora(d.chave.at)}` : 'a da Vercel (EQUIPE_CHAVE)'}</span></h2>
+      <p style="margin:0 0 10px;color:var(--muted);font-size:13px">É a chave que cada QA ou dev cola em Configurações > Time na extensão, e que abre os links de relatório. Gerar uma nova derruba a antiga na hora: as extensões e os navegadores com acesso aos relatórios passam a pedir a nova.</p>
+      <div class="row-actions">
+        <code id="chave-val" style="font-size:14px;padding:6px 10px;border-radius:7px;background:var(--surface-2);letter-spacing:.02em">${chaveVisivel ? esc(chaveVisivel) : '••••••••••••••••••••••••••••'}</code>
+        <button class="btn small" data-a="chave-ver">${chaveVisivel ? 'Esconder' : 'Mostrar'}</button>
+        <button class="btn small" data-a="chave-copiar">Copiar</button>
+        <button class="btn small" data-a="chave-trocar" style="margin-left:auto;color:var(--fail)">Gerar nova chave</button>
+      </div>
+    </div>
     <div class="grid two">
       <div class="card"><h2>Sites</h2>
         <p style="margin:0 0 10px;color:var(--muted);font-size:13px">O servidor só conhece o apelido de cada loja. Digite o endereço aqui: o apelido é calculado no seu navegador e só o nome que você der é salvo.</p>
@@ -332,6 +342,20 @@ document.addEventListener('click', async (e) => {
     if (a === 'descartar') { await api('descartar', { id: b.dataset.id }); toast('Contribuição descartada.'); }
     if (a === 'bug') { const bug = await api('bug', { chave: b.dataset.chave }); toast('Bug aberto no ClickUp.'); window.open(bug.url, '_blank'); }
     if (a === 'site-del') await api('site', { alias: b.dataset.alias, nome: '' });
+    if (a === 'chave-ver') {
+      chaveVisivel = chaveVisivel ? '' : (await api('chave')).chave;
+      return render();
+    }
+    if (a === 'chave-copiar') {
+      await navigator.clipboard.writeText((await api('chave')).chave);
+      b.disabled = false;
+      return toast('Chave copiada.');
+    }
+    if (a === 'chave-trocar') {
+      if (!confirm('Gerar uma chave nova? A atual para de funcionar na hora: cada QA vai precisar colar a nova na extensão.')) { b.disabled = false; return; }
+      chaveVisivel = (await api('trocarChave')).chave;
+      toast('Chave nova gerada. Passe para o time.');
+    }
     await carregar();
   } catch (err) {
     toast(err.message);

@@ -5,7 +5,7 @@ import { garantirInicial } from '../servidor/federado.js';
 import { ler } from '../servidor/armazem.js';
 
 export default rota(async (req, res) => {
-  exigirEquipe(req);
+  await exigirEquipe(req);
   const url = new URL(req.url, 'http://x');
   const versao = Number(url.searchParams.get('versao'));
   const arq = url.searchParams.get('arq');

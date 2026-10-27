@@ -81,7 +81,7 @@ Em Configurações > Time, informe o endereço do servidor e a chave do time.
 - **Aprender com o time**: a extensão baixa o modelo do time e o ajusta com as suas correções. Só a diferença de pesos (números) vai para o servidor, nunca texto, URL ou print. O servidor junta as contribuições numa rodada, descarta as que pioram o modelo nos casos de referência, faz a média e só publica a versão nova se ela não errar mais que a anterior. As extensões baixam a versão nova em até 15 minutos.
 - **Radar das lojas**: a cada execução vai o apelido do site (hash do endereço), o trecho da URL com só as partes conhecidas do Magento (`/checkout#payment`, produto vira `*`), se passou ou falhou, o tempo e os números da falha. O servidor classifica a falha e aponta quebra nova: um trecho que passava e começou a falhar para mais de um QA na janela recente.
 
-- **Link do relatório**: em Compartilhar > Link do relatório (ou **Copiar link do relatório** na falha), o relatório vai para o servidor e vira um link individual, `https://<servidor>/relatorio/<número>`, com botão **Baixar PDF**. O link só abre com a chave do time: na primeira vez a página pede a chave e o navegador fica liberado por 90 dias. Trocar `EQUIPE_CHAVE` na Vercel derruba todos os acessos. Com o servidor configurado, o comentário do ClickUp leva esse link em vez do HTML anexado.
+- **Link do relatório**: em Compartilhar > Link do relatório (ou **Copiar link do relatório** na falha), o relatório vai para o servidor e vira um link individual, `https://<servidor>/relatorio/<número>`, com botão **Baixar PDF**. O link só abre com a chave do time: na primeira vez a página pede a chave e o navegador fica liberado por 90 dias. Gerar uma chave nova no admin derruba todos os acessos. Com o servidor configurado, o comentário do ClickUp leva esse link em vez do HTML anexado.
 
 O painel do servidor (página inicial, protegida pela senha do admin) mostra os alertas, o mapa de calor por site e trecho, as rodadas do aprendizado, permite voltar o modelo para uma versão anterior e abrir o bug de um alerta no ClickUp. O bug automático vem desligado e só cria tarefa quando é ligado no painel.
 
@@ -92,7 +92,7 @@ Projeto Vercel na raiz deste repositório, com Vercel Blob ligado. Variáveis:
 | Variável | Para que serve |
 |---|---|
 | `ADMIN_SENHA` | Senha do painel (mínimo 8 caracteres). |
-| `EQUIPE_CHAVE` | Chave que os QAs colam em Configurações > Time. |
+| `EQUIPE_CHAVE` | Chave inicial do time. Depois, o cartão **Chave do time** do admin mostra, copia e gera uma nova (vale na hora, sem deploy; a antiga para de funcionar). |
 | `BLOB_READ_WRITE_TOKEN` | Criada ao ligar o Blob no projeto. |
 | `CLICKUP_TOKEN`, `CLICKUP_LISTA` | (opcional) Token e id da lista onde o radar abre bugs. |
 

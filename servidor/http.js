@@ -1,5 +1,6 @@
 // Utilitários das funções da Vercel (mesmo formato req/res do Node).
 import { timingSafeEqual } from 'node:crypto';
+import { chaveDoTime } from './chave.js';
 
 export function responder(res, status, corpo) {
   res.statusCode = status;
@@ -22,7 +23,7 @@ export async function lerCorpo(req, maxBytes = 1_000_000) {
   return decodificar(Buffer.concat(partes).toString());
 }
 
-export const chaveDoTimeConfere = (veio) => igual(process.env.EQUIPE_CHAVE, veio);
+export const chaveDoTimeConfere = async (veio) => igual((await chaveDoTime()).chave, veio);
 
 function igual(certa, veio) {
   const a = Buffer.from(certa || '');
@@ -40,9 +41,9 @@ export function limite(req, max, janelaMs) {
   usos.set(ip, lista);
 }
 
-/** Extensões do time: cabeçalho x-equipe = EQUIPE_CHAVE. */
-export function exigirEquipe(req) {
-  if (!igual(process.env.EQUIPE_CHAVE, req.headers['x-equipe'])) {
+/** Extensões do time: cabeçalho x-equipe = chave do time (gerada no admin ou EQUIPE_CHAVE). */
+export async function exigirEquipe(req) {
+  if (!(await chaveDoTimeConfere(req.headers['x-equipe']))) {
     limite(req, 30, 15 * 60e3);
     throw Object.assign(new Error('Chave do time inválida'), { status: 401 });
   }
