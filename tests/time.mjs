@@ -261,6 +261,7 @@ try {
   await panel.click('[data-action="team-join"]');
   await panel.waitForSelector('.toast:has-text("Convite")');
   await panel.fill('#team-invite', `Oi! Para entrar no time: ${convite}`);
+  await panel.screenshot({ path: path.join(outDir, 'convite-colado.png') });
   await panel.click('[data-action="team-join"]');
   await panel.waitForSelector('text=Conectado a');
   await check('convite colado entra no time e já liga radar e envio das execuções', async () => {

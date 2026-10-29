@@ -51,8 +51,9 @@
     <li>Repita com um clique sempre que precisar, quantas vezes quiser.</li>
     <li>Quando falhar, veja o motivo, o print da tela e mande para o dev.</li>
     <li>Uma IA local (sem enviar nada para fora) diz o tipo da falha e o que fazer.</li>
+    <li>Com o time conectado, cada QA vê num painel as lojas em que testou, com passos e prints.</li>
   </ul>
-  <div class="meta">Versão 1.3.3 · Outubro de 2026 · Rodrigo Cardoso</div>
+  <div class="meta">Versão 1.9.0 · Outubro de 2026 · Rodrigo Cardoso</div>
 </div>
 
 <section>
@@ -72,6 +73,10 @@
     <li>Problemas comuns</li>
     <li>IA local e auto-correção</li>
     <li>Atualizar a extensão</li>
+    <li>Entrar no time</li>
+    <li>Seu painel do time</li>
+    <li>Quando a chave do time muda</li>
+    <li>Para o admin: convidar QAs e cuidar da chave</li>
   </ol>
 
   <h2 style="margin-top:22px">1. Instalar a extensão</h2>
@@ -295,6 +300,83 @@
     </div>
     <img src="img/atualizacao.png" alt="" class="shot" style="width:66mm">
   </div>
+</section>
+
+<section>
+  <h2>15. Entrar no time</h2>
+  <div class="row">
+    <div class="txt">
+      <p>O time compartilha um servidor (o <b>painel do time</b>) onde aparecem as execuções, os prints e as quebras de cada loja. Para entrar, você só precisa do <b>convite</b> que o admin manda: um código que começa com <code>PANDATIME1.</code>.</p>
+      <ol class="steps">
+        <li>Clique na engrenagem (<b>Configurações</b>). A seção <b>Time</b> fica no topo.</li>
+        <li>Cole o convite no campo <b>Convite do time</b>. Pode colar a mensagem inteira que o admin mandou: a extensão acha o código sozinha.</li>
+        <li>Clique em <span class="btn">Entrar no time</span>. A extensão confere o convite com o servidor antes de salvar.</li>
+        <li>Preencha <b>Seu nome</b>. É assim que você aparece no painel. Sem nome, você vira "QA anônimo".</li>
+      </ol>
+      <p>Ao entrar, ficam ligados sozinhos o <b>Radar das lojas</b> e o <b>Enviar execuções para o painel do time</b>. Não precisa mexer em mais nada.</p>
+      <div class="tip">Servidor e chave ficam em <b>Avançado</b>. Só mexa ali se o admin pedir.</div>
+      <div class="warn">"Convite incompleto" ou "Convite não encontrado": copie de novo o código inteiro. "Convite de uma chave antiga": peça o convite atual ao admin.</div>
+    </div>
+    <img src="img/t1-convite.png" alt="" class="shot" style="width:62mm">
+  </div>
+</section>
+
+<section>
+  <h2>16. Seu painel do time</h2>
+  <div class="row">
+    <div class="txt">
+      <p>Depois de entrar, a seção Time mostra <b>Conectado a …</b>, e aparece o ícone do time (duas pessoas) no topo da tela principal da extensão.</p>
+      <ol class="steps">
+        <li>Clique no ícone do time (ou em <span class="btn">Abrir meu painel</span> nas Configurações).</li>
+        <li>O painel abre numa aba nova, já com acesso. Não precisa de senha.</li>
+      </ol>
+      <p>No painel você vê só <b>as lojas em que testou</b> e as outras do mesmo projeto. Por exemplo, se testou o staging da MetLife, vê também o local e a produção da MetLife.</p>
+    </div>
+    <img src="img/t2-conectado.png" alt="" class="shot" style="width:62mm">
+  </div>
+  <img src="img/t5-painel-qa.png" alt="" class="shot">
+  <div class="cap">Painel do QA: testes do time nas suas lojas, com os passos e os prints de cada um.</div>
+  <table>
+    <tr><th>Parte do painel</th><th>O que mostra</th></tr>
+    <tr><td>Testes</td><td>A última execução de cada teste, por QA. Clique para ver os passos, os erros e os prints. <span class="btn">Ver passo a passo</span> mostra as telas em sequência (← → no teclado).</td></tr>
+    <tr><td>Quebras novas</td><td>Um trecho da loja que passava e começou a falhar para mais de um QA. Rode de novo antes de abrir bug.</td></tr>
+    <tr><td>Por que falhou e Mapa de calor</td><td>Os motivos das falhas nas últimas 24 h e onde, por site e trecho da URL.</td></tr>
+    <tr><td>Filtros</td><td>Projeto e QA, no topo.</td></tr>
+  </table>
+  <div class="tip">Loja nova aparece no painel em até 2 minutos depois da primeira execução nela. Se o painel disser que você ainda não tem lojas, execute um teste e clique em <span class="btn">Atualizar</span>.</div>
+</section>
+
+<section>
+  <h2>17. Quando a chave do time muda</h2>
+  <div class="row">
+    <div class="txt">
+      <p>Quando alguém sai do time ou a chave vaza, o admin gera uma chave nova. A antiga para de funcionar na hora, e a extensão avisa na tela principal: <b>O servidor do time recusou a chave</b>.</p>
+      <ol class="steps">
+        <li>Peça ao admin o convite novo.</li>
+        <li>Clique em <span class="btn">Colar convite</span> no aviso.</li>
+        <li>Cole o convite e clique em <span class="btn">Entrar no time</span>. O aviso some.</li>
+      </ol>
+      <p>Enquanto o aviso estiver aparecendo, as suas execuções não chegam ao painel. Os testes continuam funcionando normalmente na extensão.</p>
+    </div>
+    <img src="img/t3-chave-recusada.png" alt="" class="shot" style="width:66mm">
+  </div>
+</section>
+
+<section>
+  <h2>18. Para o admin: convidar QAs e cuidar da chave</h2>
+  <p>O painel do admin é a página inicial do servidor do time (ex.: <code>panda-qa.vercel.app</code>), aberta com a senha do admin. QAs não usam essa senha: eles abrem o próprio painel pela extensão.</p>
+  <h3>Convidar um QA</h3>
+  <ol class="steps">
+    <li>No topo do painel, clique em <span class="btn">Convidar QA</span>.</li>
+    <li>Clique em <span class="btn">Copiar mensagem para o QA</span> e mande no chat ou por e-mail. A mensagem já traz o link da extensão, como instalar e o convite.</li>
+    <li>O QA segue as seções 1 e 15 deste guia.</li>
+  </ol>
+  <img src="img/t4-admin-convidar.png" alt="" class="shot">
+  <div class="cap">Cartão "Convidar QA" no painel do admin.</div>
+  <h3>Trocar a chave</h3>
+  <p>Use <span class="btn" style="color:var(--fail)">Gerar nova chave</span> quando alguém sair do time ou a chave vazar. Depois copie a mensagem de novo e mande para quem continua no time. Os links de relatório também passam a pedir a chave nova.</p>
+  <h3>Projetos e sites</h3>
+  <p>Você não precisa cadastrar as lojas. Na primeira execução em um site, ele aparece com o nome do domínio (ex.: <code>qa.metlife.cl</code>) e entra no projeto do cliente, tirado do domínio (<code>qa.metlife.cl</code> e <code>metlife.test</code> viram <b>Metlife</b>). Se já existe um projeto com esse nome, o site entra nele. Endereços sem cliente reconhecível (IP, <code>localhost</code>, URL de nuvem com código) só ganham o nome: coloque no projeto pelo cartão <b>Projetos</b>. O que você mudar à mão não é desfeito.</p>
 </section>
 
 </body>
