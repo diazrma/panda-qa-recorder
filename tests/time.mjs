@@ -408,6 +408,17 @@ try {
     assert.ok(!process.env.BLOB_READ_WRITE_TOKEN);
     assert.ok(fs.readdirSync(path.join(process.env.DADOS_DIR, 'relatorios')).length >= 1);
   });
+  await panel.click('[data-action="back"]').catch(() => {});
+  await panel.click('.card:has-text("Login local")');
+  await panel.click('[data-action="report-link"]');
+  await panel.waitForSelector('dialog[open] .qr-box svg');
+  await check('copiar link do relatório mostra o QR com o link para abrir no celular', async () => {
+    assert.match(await panel.textContent('dialog .qr-box code'), /\/relatorio\/\d{18}$/);
+    assert.equal(await panel.getAttribute('dialog a.btn', 'href'), await panel.textContent('dialog .qr-box code'));
+    assert.ok((await panel.$$('dialog .qr-box svg path, dialog .qr-box svg rect')).length > 0);
+    await panel.screenshot({ path: path.join(outDir, 'qr-relatorio.png') });
+    await panel.click('dialog [data-dlg="cancel"]');
+  });
   await check('painel sem erros de JS', async () => assert.deepEqual(panelErrors.filter((e) => !/Failed to load resource/.test(e)), []));
 } finally {
   await context.close();

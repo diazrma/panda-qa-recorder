@@ -202,5 +202,6 @@ Se a versão do Playwright não encontrar o navegador, aponte para um Chromium j
 ## Terceiros
 
 TensorFlow.js 4.22.0 (`lib/vendor/tf.min.js`), licença Apache 2.0.
+qrcode-generator 1.4.4 (`lib/vendor/qrcode.js`), de Kazuhiko Arase, licença MIT.
 
 Autor: Rodrigo Cardoso

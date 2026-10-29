@@ -966,6 +966,22 @@ function showShot() {
   dlg.showModal();
 }
 
+// ---------- QR do link do relatório ----------
+
+/** Mostra o link do relatório (já copiado) com um QR para abrir no celular. */
+function showLinkQr(url) {
+  const qr = globalThis.qrcode(0, 'M');
+  qr.addData(url);
+  qr.make();
+  dlg.innerHTML = `<div class="dlg-head">Link do relatório copiado</div>
+    <div class="qr-box">${qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true })}
+      <small>Aponte a câmera do celular para abrir. Na primeira vez a página pede a chave do time.</small>
+      <code>${esc(url)}</code></div>
+    <div class="dlg-foot"><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Abrir</a><span class="spacer"></span><button class="btn" data-dlg="cancel">Fechar</button></div>`;
+  dlg.onclick = (e) => { if (e.target.closest('[data-dlg="cancel"]')) dlg.close(); };
+  dlg.showModal();
+}
+
 // ---------- prints passo a passo ----------
 
 /** Print do passo na última execução (só quando a opção "Print de cada passo" estava ligada). */
@@ -1068,8 +1084,8 @@ async function shareTest(test) {
         b.disabled = true;
         const url = await reportLink(test, run);
         await navigator.clipboard.writeText(url);
-        toast('Link do relatório copiado.');
         b.disabled = false;
+        showLinkQr(url);
       } else if (kind === 'steps') {
         await navigator.clipboard.writeText(toMarkdown(test));
         toast('Lista de passos copiada.');
@@ -1351,7 +1367,7 @@ const actions = {
     try {
       const url = await reportLink(test, run);
       await navigator.clipboard.writeText(url);
-      toast('Link do relatório copiado.');
+      showLinkQr(url);
     } finally {
       el.disabled = false;
     }

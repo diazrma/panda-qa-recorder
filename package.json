@@ -1,6 +1,6 @@
 {
   "name": "@kingofpanda/qa-recorder",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "private": true,
   "description": "Panda QA Recorder: extensão Chrome para gravar, listar e repetir testes de front-end.",
   "authors": [

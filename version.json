@@ -1,5 +1,5 @@
 {
-  "version": "1.6.0",
-  "notes": "Print de cada passo (Configurações), com miniaturas e visualizador passo a passo. Prints anexados no ClickUp com comentário formatado. Seu nome e envio opcional das execuções para a seção Testes do painel do time, que agora separa por projeto e por QA.",
+  "version": "1.6.1",
+  "notes": "QR code do link do relatório para abrir no celular. Inclui a 1.6.0: print de cada passo, prints no ClickUp e seção Testes no painel do time.",
   "download": "https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip"
 }

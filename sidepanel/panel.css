@@ -495,3 +495,6 @@ dialog::backdrop { background: rgba(10, 12, 16, .45); }
 .section-title .btn { margin-left: auto; text-transform: none; letter-spacing: 0; }
 .viewer-desc { padding: 8px 14px; font-size: 12.5px; border-bottom: 1px solid var(--border); }
 .viewer-count { color: var(--muted); font-size: 12px; align-self: center; }
+.qr-box { display: grid; justify-items: center; gap: 8px; padding: 14px; text-align: center; }
+.qr-box svg { width: 220px; height: 220px; background: #fff; border-radius: 8px; }
+.qr-box code { font-size: 11px; word-break: break-all; color: var(--muted); }
