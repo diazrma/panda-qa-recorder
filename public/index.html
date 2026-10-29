@@ -146,10 +146,18 @@ const hora = (t) => new Date(t).toLocaleString('pt-BR', { dateStyle: 'short', ti
 const ORIGEM = { teste: 'Ajustar o teste', site: 'Problema no site', ambiente: 'Ambiente' };
 let senha = '';
 try { senha = sessionStorage.getItem('pqa-senha') || ''; } catch {}
+// Painel do QA: a extensão abre /#qa=<id da extensão>&k=<chave do time>. Fica só nesta aba e some da barra.
+let qa = null;
+try {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('qa') && h.get('k')) sessionStorage.setItem('pqa-qa', JSON.stringify({ cliente: h.get('qa'), chave: h.get('k') }));
+  if (h.get('qa')) history.replaceState(null, '', location.pathname);
+  qa = JSON.parse(sessionStorage.getItem('pqa-qa') || 'null');
+} catch {}
 let dados = null;
 let chaveVisivel = '';
 let filtro = { projeto: '', qa: '' };
-try { filtro = { ...filtro, ...JSON.parse(localStorage.getItem('pqa-filtro') || '{}') }; } catch {}
+try { filtro = { ...filtro, ...JSON.parse(localStorage.getItem(qa ? 'pqa-filtro-qa' : 'pqa-filtro') || '{}') }; } catch {}
 let editandoProjeto = '';
 const abertos = new Set();
 const execCache = new Map();
@@ -166,7 +174,9 @@ function toast(t) {
 }
 
 async function api(acao, extra = {}) {
-  const r = await fetch('/api/admin', { method: 'POST', headers: { 'content-type': 'application/json', 'x-senha': senha }, body: JSON.stringify({ acao, ...extra }) });
+  const r = qa
+    ? await fetch('/api/qa', { method: 'POST', headers: { 'content-type': 'application/json', 'x-equipe': qa.chave }, body: JSON.stringify({ acao, cliente: qa.cliente, ...extra }) })
+    : await fetch('/api/admin', { method: 'POST', headers: { 'content-type': 'application/json', 'x-senha': senha }, body: JSON.stringify({ acao, ...extra }) });
   const d = await r.json().catch(() => ({}));
   if (r.status === 401) { sair(); throw new Error(d.erro || 'Senha errada'); }
   if (!r.ok) throw new Error(d.erro || `Erro ${r.status}`);
@@ -175,7 +185,8 @@ async function api(acao, extra = {}) {
 
 function sair() {
   senha = '';
-  try { sessionStorage.removeItem('pqa-senha'); } catch {}
+  qa = null;
+  try { sessionStorage.removeItem('pqa-senha'); sessionStorage.removeItem('pqa-qa'); } catch {}
   $('#app').hidden = true;
   $('#login').hidden = false;
 }
@@ -198,7 +209,7 @@ async function carregar() {
   const sumiuQa = filtro.qa && !(dados.radar.qas || []).some((q) => q.id === filtro.qa);
   if (sumiuProjeto || sumiuQa) {
     filtro = { projeto: sumiuProjeto ? '' : filtro.projeto, qa: sumiuQa ? '' : filtro.qa };
-    try { localStorage.setItem('pqa-filtro', JSON.stringify(filtro)); } catch {}
+    try { localStorage.setItem(qa ? 'pqa-filtro-qa' : 'pqa-filtro', JSON.stringify(filtro)); } catch {}
     dados = await api('painel', { filtro });
   }
   $('#login').hidden = true;
@@ -227,6 +238,7 @@ const qaNome = (id) => {
 function secaoTestes() {
   const lista = dados.execucoes || [];
   if (!lista.length) {
+    if (qa && !dados.lojas) return '<div class="card"><div class="empty">Você ainda não tem lojas aqui. Execute um teste na extensão com o "Radar das lojas" ou "Enviar execuções para o painel do time" ligado: a loja aparece em até 2 minutos.</div></div>';
     return `<div class="card"><div class="empty">${filtro.projeto || filtro.qa ? 'Nenhum teste enviado com este filtro.' : 'Nenhum teste enviado ainda. Na extensão, ligue "Enviar execuções para o painel do time" em Configurações > Time (e "Print de cada passo" para ver as telas).'}</div></div>`;
   }
   return lista.map((e) => `<details class="ex" data-ex="${esc(e.id)}" ${abertos.has(e.id) ? 'open' : ''}>
@@ -249,7 +261,7 @@ function corpoExecucao(e) {
         ${ex.shots[i] ? `<img src="${ex.shots[i]}" alt="Tela depois do passo ${i + 1}" data-a="ver-print" data-id="${esc(e.id)}" data-i="${i}" loading="lazy">` : ''}</li>`;
     }).join('')}</ol>
     <div class="row-actions" style="margin-top:12px">${Object.keys(ex.shots).length ? `<button class="btn small primary" data-a="ver-print" data-id="${esc(e.id)}" data-i="${Object.keys(ex.shots)[0]}">Ver passo a passo</button>` : '<span style="color:var(--muted);font-size:13px">Sem prints: na extensão, ligue "Print de cada passo" em Configurações.</span>'}
-      <button class="btn small" data-a="execucao-del" data-id="${esc(e.id)}" style="margin-left:auto">Remover do painel</button></div>`;
+      ${qa ? '' : `<button class="btn small" data-a="execucao-del" data-id="${esc(e.id)}" style="margin-left:auto">Remover do painel</button>`}</div>`;
 }
 
 async function abrirExecucao(det) {
@@ -373,7 +385,7 @@ function render() {
   const nomes = d.config.sites || {};
   $('#app').innerHTML = `
   <header>
-    <h1><span class="logo">P</span>Panda QA · Admin <small>atualizado ${new Date().toLocaleTimeString('pt-BR')}</small></h1>
+    <h1><span class="logo">P</span>Panda QA · ${qa ? `Minhas lojas <small>${d.lojas} loja(s) ·` : 'Admin <small>'} atualizado ${new Date().toLocaleTimeString('pt-BR')}</small></h1>
     <button class="btn" data-a="tema" title="Trocar tema">${document.documentElement.dataset.theme === 'dark' ? '☀ Claro' : '☾ Escuro'}</button>
     <button class="btn" data-a="recarregar">Atualizar</button>
     <button class="btn" data-a="sair">Sair</button>
@@ -381,7 +393,7 @@ function render() {
   ${barraDeFiltros()}
 
   <div class="grid kpis">
-    <div class="card kpi"><div class="label">Modelo do time</div><div class="val">v${d.atual.versao}</div><div class="hint">acerta ${pct(d.atual.acuracia)} nos casos de referência</div></div>
+    ${qa ? '' : `<div class="card kpi"><div class="label">Modelo do time</div><div class="val">v${d.atual.versao}</div><div class="hint">acerta ${pct(d.atual.acuracia)} nos casos de referência</div></div>`}
     <div class="card kpi"><div class="label">Execuções nas últimas 24 h</div><div class="val">${r.resumo.execucoes}</div><div class="hint">${r.resumo.falhas} falhas (${pct(taxa)}) · ${r.resumo.sites} site(s)</div></div>
     <div class="card kpi"><div class="label">QAs ativos (24 h)</div><div class="val">${r.resumo.qas}</div><div class="hint">tempo médio por execução ${(r.resumo.tempoMedio / 1000).toFixed(1).replace('.', ',')} s</div></div>
     <div class="card kpi"><div class="label">Quebras detectadas agora</div><div class="val" style="color:${r.alertas.length ? 'var(--fail)' : 'var(--ok)'}">${r.alertas.length}</div><div class="hint">janela de ${d.config.janelaHoras} h comparada aos 7 dias antes</div></div>
@@ -395,12 +407,12 @@ function render() {
   <section>
     <div class="title">Radar das lojas</div>
     <div class="card">
-      <h2>Quebras novas<span class="sub">${d.clickup ? (d.config.autoBug ? 'bug automático no ClickUp ligado' : 'bug no ClickUp com um clique') : 'ClickUp não configurado no servidor'}</span></h2>
+      <h2>Quebras novas<span class="sub">${qa ? 'nas suas lojas' : d.clickup ? (d.config.autoBug ? 'bug automático no ClickUp ligado' : 'bug no ClickUp com um clique') : 'ClickUp não configurado no servidor'}</span></h2>
       ${r.alertas.length ? r.alertas.map((a) => `
         <div class="alert">
           <div><b>${esc(a.nome)}</b>${a.projeto ? ` <span class="pill">${esc(nomeProjeto(a.projeto))}</span>` : ''} <code>${esc(a.fluxo)}</code> <span class="pill ${a.origem || ''}">${esc(a.rotulo)}</span></div>
           <div class="meta">${a.falhas} de ${a.total} execuções falharam desde ${hora(a.desde)}, com ${a.clientes} QAs (${a.qas.map((q) => esc(qaNome(q))).join(', ')}). ${a.taxaAntes == null ? 'Sem histórico antes.' : `Antes falhava ${pct(a.taxaAntes)} (${a.execucoesAntes} execuções).`}${a.origem ? ` Origem provável: ${ORIGEM[a.origem]}.` : ''}</div>
-          <div class="act">${a.bug ? `<a class="btn small" href="${esc(a.bug.url)}" target="_blank">Ver bug</a>` : `<button class="btn small primary" data-a="bug" data-chave="${esc(a.chave)}" ${d.clickup ? '' : 'disabled title="Configure CLICKUP_TOKEN e CLICKUP_LISTA"'}>Abrir bug no ClickUp</button>`}</div>
+          <div class="act">${a.bug ? `<a class="btn small" href="${esc(a.bug.url)}" target="_blank">Ver bug</a>` : qa ? '' : `<button class="btn small primary" data-a="bug" data-chave="${esc(a.chave)}" ${d.clickup ? '' : 'disabled title="Configure CLICKUP_TOKEN e CLICKUP_LISTA"'}>Abrir bug no ClickUp</button>`}</div>
         </div>`).join('') : '<div class="empty">Nenhuma quebra nova. Tudo que falha agora já falhava antes, ou foi um QA só.</div>'}
     </div>
     <div class="grid two" style="margin-top:14px">
@@ -411,13 +423,13 @@ function render() {
     </div>
     <div class="card" style="margin-top:14px"><h2>Mapa de calor<span class="sub">site × trecho da URL, 24 h</span></h2>
       ${r.mapa.length ? `<div class="scroll"><table><thead><tr><th>Projeto</th><th>Site</th><th>Trecho</th><th class="num">Execuções</th><th class="num">Testes</th><th>Falhas</th><th>Motivo mais comum</th></tr></thead><tbody>
-        ${r.mapa.map((m) => `<tr><td>${m.projeto ? esc(nomeProjeto(m.projeto)) : '<span class="pill">sem projeto</span>'}</td><td>${esc(m.nome)}${m.nome === m.site ? ' <span class="pill" title="Dê um nome em Sites, abaixo">sem nome</span>' : ''}</td><td><code>${esc(m.fluxo)}</code></td><td class="num">${m.total}</td><td class="num">${m.testes}</td>
+        ${r.mapa.map((m) => `<tr><td>${m.projeto ? esc(nomeProjeto(m.projeto)) : '<span class="pill">sem projeto</span>'}</td><td>${esc(m.nome)}${m.nome === m.site && !qa ? ' <span class="pill" title="Dê um nome em Sites, abaixo">sem nome</span>' : ''}</td><td><code>${esc(m.fluxo)}</code></td><td class="num">${m.total}</td><td class="num">${m.testes}</td>
           <td><span class="heat"><i style="width:${Math.max(4, m.taxa * 100)}%;background:${corTaxa(m.taxa)}"></i></span>${pct(m.taxa)}</td><td>${m.categoria ? esc((r.categorias.find((c) => c.cat === m.categoria) || {}).rotulo || m.categoria) : '–'}</td></tr>`).join('')}
       </tbody></table></div>` : (filtro.projeto || filtro.qa ? '<div class="empty">Nada nas últimas 24 h com este filtro.</div>' : '<div class="empty">Ainda sem sinais. Ligue o "Radar das lojas" nas Configurações da extensão.</div>')}
     </div>
   </section>
 
-  <section>
+  ${qa ? '' : `<section>
     <div class="title">Aprendizado federado</div>
     <div class="grid two">
       <div class="card"><h2>Acerto por versão</h2>${graficoVersoes(d.versoes, d.atual.versao)}
@@ -473,7 +485,8 @@ function render() {
       <p style="margin:0 0 10px;color:var(--muted);font-size:13px">Apaga o aprendizado federado e as contribuições pendentes, limpa o histórico de rodadas e do radar, remove os nomes dos sites e publica o modelo base novamente. Não apaga os testes, variáveis ou configurações locais das extensões.</p>
       <button class="btn" data-a="resetar" style="color:var(--fail)">Resetar aprendizado e sites</button>
     </div>
-  </section>`;
+  </section>`}`;
+  if (qa) return ligarComuns();
 
   $('#site-form').onsubmit = async (e) => {
     e.preventDefault();
@@ -493,19 +506,7 @@ function render() {
       await carregar();
     } catch (err) { toast(err.message); }
   };
-  document.querySelectorAll('details.ex').forEach((det) => {
-    det.ontoggle = () => {
-      if (det.open) { abertos.add(det.dataset.ex); abrirExecucao(det); } else abertos.delete(det.dataset.ex);
-    };
-    if (det.open) abrirExecucao(det);
-  });
-  document.querySelectorAll('[data-filtro]').forEach((s) => {
-    s.onchange = async () => {
-      filtro = { ...filtro, [s.dataset.filtro]: s.value };
-      try { localStorage.setItem('pqa-filtro', JSON.stringify(filtro)); } catch {}
-      try { await carregar(); } catch (err) { toast(err.message); }
-    };
-  });
+  ligarComuns();
   $('#cfg-form').onsubmit = async (e) => {
     e.preventDefault();
     try {
@@ -516,6 +517,23 @@ function render() {
       await carregar();
     } catch (err) { toast(err.message); }
   };
+}
+
+// Ligações que valem para o admin e para o painel do QA: abrir execução e filtros.
+function ligarComuns() {
+  document.querySelectorAll('details.ex').forEach((det) => {
+    det.ontoggle = () => {
+      if (det.open) { abertos.add(det.dataset.ex); abrirExecucao(det); } else abertos.delete(det.dataset.ex);
+    };
+    if (det.open) abrirExecucao(det);
+  });
+  document.querySelectorAll('[data-filtro]').forEach((s) => {
+    s.onchange = async () => {
+      filtro = { ...filtro, [s.dataset.filtro]: s.value };
+      try { localStorage.setItem(qa ? 'pqa-filtro-qa' : 'pqa-filtro', JSON.stringify(filtro)); } catch {}
+      try { await carregar(); } catch (err) { toast(err.message); }
+    };
+  });
 }
 
 document.addEventListener('click', async (e) => {
@@ -539,7 +557,7 @@ document.addEventListener('click', async (e) => {
     if (a === 'ver-print') return verPrints(b.dataset.id, Number(b.dataset.i));
     if (a === 'limpar-filtro') {
       filtro = { projeto: '', qa: '' };
-      try { localStorage.removeItem('pqa-filtro'); } catch {}
+      try { localStorage.removeItem(qa ? 'pqa-filtro-qa' : 'pqa-filtro'); } catch {}
     }
     b.disabled = true;
     if (a === 'ativar' && confirm(`Colocar a v${b.dataset.versao} como modelo do time? As extensões baixam em até 15 min.`)) { await api('ativar', { versao: Number(b.dataset.versao) }); toast(`v${b.dataset.versao} em uso.`); }
@@ -587,11 +605,13 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-if (senha) carregar().catch(() => sair());
-else sair();
+if (senha || qa) {
+  const eraQa = Boolean(qa);
+  carregar().catch((err) => { sair(); if (eraQa) $('#login-err').textContent = `${err.message}. Abra de novo pelo botão "Abrir meu painel" da extensão.`; });
+} else sair();
 // Não recarrega enquanto alguém digita num formulário: o render apagaria o que foi digitado.
 const digitando = () => Boolean(editandoProjeto || abertos.size || $('#viewer').open || document.activeElement?.closest('form'));
-setInterval(() => { if (senha && !document.hidden && !digitando()) carregar().catch(() => {}); }, 60000);
+setInterval(() => { if ((senha || qa) && !document.hidden && !digitando()) carregar().catch(() => {}); }, 60000);
 </script>
 </body>
 </html>

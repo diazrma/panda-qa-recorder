@@ -12,7 +12,7 @@ import { BUILTINS } from '../lib/vars.js';
 import { toReportHtml, toSummaryText, toClickupComment, stepShotName, LOG_KIND } from '../lib/report.js';
 import { buildFullBackup, isBackup, isFullBackup, restoreBackup, restoreFullBackup } from '../lib/backup.js';
 import { parseTaskRef, getTask, searchTasks, logTime, comment, attach, setStatus, taskTimes, fmtDuration } from '../lib/clickup.js';
-import { syncTeam, pushContribution, teamConfig, uploadReport } from '../lib/team.js';
+import { syncTeam, pushContribution, teamConfig, uploadReport, clientId } from '../lib/team.js';
 
 const ICON = {
   play: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.4-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z"/></svg>',
@@ -740,7 +740,7 @@ function renderSettings() {
       <label class="check"><input type="checkbox" data-setting="teamRuns" ${s.teamRuns ? 'checked' : ''}>
         <span>Enviar execuções para o painel do time<br><small>A cada execução manda o nome do teste, os passos, o resultado e os prints (se ligados) para a seção Testes do painel, protegida pela chave do time. Fica só a última execução de cada teste.</small></span></label>
       <div class="banner-text">${teamStatus()}</div>
-      <div class="banner-actions" style="margin-top:0"><button class="btn small" data-action="team-sync" ${s.teamServer && s.teamKey ? '' : 'disabled'}>Sincronizar agora</button></div>
+      <div class="banner-actions" style="margin-top:0"><button class="btn small" data-action="team-sync" ${s.teamServer && s.teamKey ? '' : 'disabled'}>Sincronizar agora</button><button class="btn small ghost" data-action="team-panel" title="Painel do time só com as lojas em que você testou" ${s.teamServer && s.teamKey ? '' : 'disabled'}>Abrir meu painel</button></div>
       <div class="section-title" style="padding:8px 0 0">ClickUp</div>
       <label>Token pessoal do ClickUp
         <input type="password" data-setting="clickupToken" value="${esc(s.clickupToken)}" placeholder="pk_..." autocomplete="off">
@@ -1282,6 +1282,12 @@ const actions = {
     await send('radar:flush').catch(() => {});
     aiCache.clear();
     toast('Sincronizado com o servidor do time.');
+  },
+  async 'team-panel'() {
+    const cfg = await teamConfig();
+    if (!cfg.on) return toast('Preencha o servidor e a chave do time.');
+    // Chave e id vão no fragmento (#), que o navegador não manda ao servidor nem guarda no log de acesso.
+    chrome.tabs.create({ url: `${cfg.server}/#qa=${encodeURIComponent(await clientId())}&k=${encodeURIComponent(cfg.key)}` });
   },
   async 'run-stop'() {
     await send('run:stop');

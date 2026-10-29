@@ -94,6 +94,10 @@ O painel do servidor (página inicial, protegida pela senha do admin) mostra os 
 - Os alertas e as contribuições pendentes mostram o nome de cada QA.
 - **Testes**: com **Enviar execuções para o painel do time** ligado na extensão (Configurações > Time, vem desligado), cada execução manda o nome do teste, os passos, o resultado e os prints. O painel mostra a última execução de cada teste por QA; clicar abre os passos com as miniaturas, e **Ver passo a passo** abre os prints em sequência (← → no teclado). Respeita o filtro de projeto e QA. Os e-mails gerados no teste não são enviados.
 
+### Painel do QA
+
+Em Configurações > Time, **Abrir meu painel** abre o painel do servidor só com as lojas em que você testou: os sites para onde a sua extensão mandou sinal do radar ou execução, mais os outros sites dos mesmos projetos (testou no staging da MetLife, vê também o local e a produção). Mostra os testes do time nessas lojas, com passos e prints, as quebras novas, o mapa de calor e os motivos de falha, com filtro por projeto e QA. Não mostra nada de admin (aprendizado, chave, projetos, sites, limpeza) e não abre bug nem remove execução. Entra com a chave do time, que vai no link só na parte depois do `#` (não chega ao servidor nem fica na barra de endereço) e vale só para aquela aba. Loja nova aparece depois da primeira execução, em até 2 minutos.
+
 ### Subir o servidor
 
 Projeto Vercel na raiz deste repositório, com Vercel Blob ligado. Variáveis:

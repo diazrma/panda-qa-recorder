@@ -319,6 +319,25 @@ try {
     assert.equal(soDele.radar.resumo.execucoes, 1);
   });
 
+  await check('"Abrir meu painel" abre o painel do QA só com as lojas dele, sem nada de admin', async () => {
+    const [aba] = await Promise.all([context.waitForEvent('page'), panel.click('[data-action="team-panel"]')]);
+    const erros = [];
+    aba.on('pageerror', (e) => erros.push(e.message));
+    await aba.waitForSelector('text=Minhas lojas', { timeout: 15000 });
+    assert.doesNotMatch(aba.url(), /#|chave|k=/, 'a chave sai da barra de endereço');
+    const texto = await aba.innerText('#app');
+    assert.match(texto, new RegExp(l1.name));
+    assert.match(texto, /1 loja\(s\)/);
+    assert.doesNotMatch(texto, /Aprendizado federado|Chave do time|Limpeza do time|Remover do painel/);
+    await aba.click('details.ex summary');
+    await aba.waitForSelector('details.ex ol.passos li');
+    await aba.screenshot({ path: path.join(outDir, 'painel-qa.png'), fullPage: true });
+    await aba.setViewportSize({ width: 390, height: 844 });
+    await aba.screenshot({ path: path.join(outDir, 'painel-qa-mobile.png'), fullPage: true });
+    assert.deepEqual(erros, []);
+    await aba.close();
+  });
+
   console.log('Relatório por link');
   const link = await panel.evaluate(async () => {
     const { uploadReport } = await import('../lib/team.js');

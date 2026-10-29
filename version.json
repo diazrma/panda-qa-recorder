@@ -1,5 +1,5 @@
 {
-  "version": "1.7.0",
-  "notes": "O painel do time cria o projeto sozinho a partir do endereço do site e já mostra o site com o nome do domínio.",
+  "version": "1.8.0",
+  "notes": "Botão \"Abrir meu painel\" em Configurações > Time: painel do servidor só com as lojas em que você testou. Inclui a 1.7.0: projeto criado sozinho pelo endereço do site.",
   "download": "https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip"
 }

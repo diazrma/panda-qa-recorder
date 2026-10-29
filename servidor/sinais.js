@@ -67,8 +67,9 @@ export function listarQas(sinais, agora = Date.now()) {
   return [...qas.values()].sort((a, b) => !a.nome - !b.nome || a.nome.localeCompare(b.nome, 'pt-BR') || b.ultimo - a.ultimo);
 }
 
-export async function painelRadar(cfg, agora = Date.now(), filtro = {}) {
-  const todos = await lerSinais(8, agora);
+/** Radar do painel. Com `sites` (Set de apelidos), só os sinais dessas lojas entram (painel do QA). */
+export async function painelRadar(cfg, agora = Date.now(), filtro = {}, sites = null) {
+  const todos = (await lerSinais(8, agora)).filter((s) => !sites || sites.has(s.s));
   const doSite = projetoDosSites(cfg.projetos);
   const projeto = filtro.projeto || '';
   const noProjeto = projeto ? todos.filter((s) => (doSite[s.s] || '-') === projeto) : todos;
