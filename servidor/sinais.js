@@ -6,13 +6,16 @@ import { config, modeloAtual, classificar, deEsparso } from './federado.js';
 import { criarTarefa } from './clickup.js';
 
 const limpa = (v, n) => String(v ?? '').replace(/[^\w/#*?.-]/g, '').slice(0, n);
+export const limpaNome = (v) => String(v ?? '').replace(/[^\p{L}\p{N} .'-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 40);
 const dias = (n, agora) => Array.from({ length: n }, (_, i) => new Date(agora - i * 864e5).toISOString().slice(0, 10));
 
-export async function receberSinais({ cliente, sinais }) {
+export async function receberSinais({ cliente, nome, sinais }) {
   if (!Array.isArray(sinais) || !sinais.length) return { ok: true, recebidos: 0 };
   const agora = Date.now();
+  const q = limpaNome(nome);
   const lista = sinais.slice(0, 300).map((s) => ({
     c: limpa(cliente, 20),
+    ...(q ? { q } : {}),
     s: limpa(s.s, 16),
     f: limpa(s.f, 80) || '/',
     t: limpa(s.t, 16),
@@ -39,10 +42,46 @@ export async function lerSinais(nDias = 8, agora = Date.now()) {
   return arquivos.flatMap((a) => (Array.isArray(a.dados) ? a.dados : []));
 }
 
-export async function painelRadar(cfg, agora = Date.now()) {
-  const r = analisar(await lerSinais(8, agora), { agora, janelaHoras: cfg.janelaHoras, minClientes: Math.min(2, cfg.minClientes), sites: cfg.sites });
+/** Projeto de cada site (apelido -> id do projeto), a partir de cfg.projetos. */
+export function projetoDosSites(projetos = {}) {
+  const mapa = {};
+  for (const [id, p] of Object.entries(projetos)) for (const s of p.sites || []) mapa[s] = id;
+  return mapa;
+}
+
+/** QAs que mandaram sinal na janela lida, com o último nome informado e os números das últimas 24 h. */
+export function listarQas(sinais, agora = Date.now()) {
+  const qas = new Map();
+  for (const s of [...sinais].sort((a, b) => a.at - b.at)) {
+    const qa = qas.get(s.c) || { id: s.c, nome: '', ultimo: 0, execucoes: 0, falhas: 0 };
+    if (s.q) qa.nome = s.q;
+    qa.ultimo = Math.max(qa.ultimo, s.at);
+    if (s.at >= agora - 864e5) {
+      qa.execucoes++;
+      if (s.st === 'failed') qa.falhas++;
+    }
+    qas.set(s.c, qa);
+  }
+  return [...qas.values()].sort((a, b) => !a.nome - !b.nome || a.nome.localeCompare(b.nome, 'pt-BR') || b.ultimo - a.ultimo);
+}
+
+export async function painelRadar(cfg, agora = Date.now(), filtro = {}) {
+  const todos = await lerSinais(8, agora);
+  const doSite = projetoDosSites(cfg.projetos);
+  const projeto = filtro.projeto || '';
+  const noProjeto = projeto ? todos.filter((s) => (doSite[s.s] || '-') === projeto) : todos;
+  const qa = filtro.qa || '';
+  const filtrados = qa ? noProjeto.filter((s) => s.c === qa) : noProjeto;
+  const opcoes = { agora, janelaHoras: cfg.janelaHoras, minClientes: Math.min(2, cfg.minClientes), sites: cfg.sites };
+  const r = analisar(filtrados, opcoes);
+  // Quebra nova depende de mais de um QA: com filtro de QA, vale a do projeto em que ele está entre os que falharam.
+  if (qa) r.alertas = analisar(noProjeto, opcoes).alertas.filter((a) => a.qas.includes(qa));
   const bugs = await lerJSON('estado/bugs.json', {});
-  r.alertas = r.alertas.map((a) => ({ ...a, bug: bugs[a.chave] || null }));
+  r.alertas = r.alertas.map((a) => ({ ...a, projeto: doSite[a.site] || null, bug: bugs[a.chave] || null }));
+  r.mapa = r.mapa.map((m) => ({ ...m, projeto: doSite[m.site] || null }));
+  r.qas = listarQas(todos, agora);
+  r.sitesVistos = [...new Set(todos.map((s) => s.s))];
+  r.filtro = { projeto, qa };
   return r;
 }
 

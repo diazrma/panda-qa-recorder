@@ -1,13 +1,16 @@
 // Painel: POST /api/admin { acao, ... } com o cabeçalho x-senha = ADMIN_SENHA.
-//   painel                      -> tudo que a tela mostra (modelo, rodadas, pendentes, radar)
+//   painel     { filtro? }      -> tudo que a tela mostra (modelo, rodadas, pendentes, radar);
+//                                  filtro { projeto, qa } recorta o radar ('-' = sites sem projeto)
 //   ativar     { versao }       -> volta/avança o modelo do time para essa versão
 //   rodada                      -> fecha a rodada agora com as contribuições pendentes
 //   descartar  { id }           -> joga fora uma contribuição pendente
 //   config     { minClientes, janelaHoras, autoBug }
 //   site       { alias, nome }  -> dá nome a um site do radar (o servidor só conhece o apelido)
+//   projeto    { id?, nome, sites } -> cria/edita um projeto (grupo de sites); nome vazio remove
 //   bug        { chave }        -> abre no ClickUp o bug de um alerta do radar
 //   chave                       -> mostra a chave do time (a que os QAs colam na extensão)
 //   trocarChave                 -> gera uma chave nova; a antiga para de funcionar na hora
+import { randomUUID } from 'node:crypto';
 import { rota, responder, exigirAdmin, lerCorpo } from '../servidor/http.js';
 import { garantirInicial, config, salvarConfig, ativarVersao, fecharRodada, listarVersoes, resetarAprendizado } from '../servidor/federado.js';
 import { listar, lerJSON, apagar } from '../servidor/armazem.js';
@@ -23,9 +26,13 @@ export default rota(async (req, res) => {
 
   if (d.acao === 'painel') {
     const atual = await garantirInicial();
+    const filtro = { projeto: String(d.filtro?.projeto || '').replace(/[^\w-]/g, ''), qa: String(d.filtro?.qa || '').replace(/[^\w-]/g, '') };
+    const radar = await painelRadar(cfg, Date.now(), filtro);
+    const nomes = Object.fromEntries(radar.qas.map((q) => [q.id, q.nome]));
     const pendentes = (await listar(`contrib/${atual.versao}/`)).map((c) => {
       const id = c.chave.split('/').pop().replace(/\.json$/, '');
-      return { id, cliente: id.split('-').slice(1).join('-'), at: c.at };
+      const cliente = id.split('-').slice(1).join('-');
+      return { id, cliente, nome: nomes[cliente] || '', at: c.at };
     });
     return responder(res, 200, {
       atual,
@@ -33,7 +40,7 @@ export default rota(async (req, res) => {
       rodadas: (await lerJSON('estado/rodadas.json', [])).slice(-30).reverse(),
       pendentes,
       config: cfg,
-      radar: await painelRadar(cfg),
+      radar,
       clickup: clickupLigado(),
       chave: await chaveDoTime().then(({ at, origem }) => ({ at, origem })),
     });
@@ -64,6 +71,21 @@ export default rota(async (req, res) => {
     else delete sites[alias];
     await salvarConfig({ ...cfg, sites });
     return responder(res, 200, { ok: true });
+  }
+  if (d.acao === 'projeto') {
+    const id = String(d.id || '').replace(/[^\w-]/g, '').slice(0, 16) || `p${randomUUID().slice(0, 8)}`;
+    const projetos = { ...cfg.projetos };
+    const nome = String(d.nome || '').trim().slice(0, 60);
+    if (!nome) {
+      delete projetos[id];
+    } else {
+      const sites = [...new Set((Array.isArray(d.sites) ? d.sites : []).map((s) => String(s).replace(/[^\w]/g, '').slice(0, 16)).filter(Boolean))];
+      // Um site pertence a um projeto só: ao entrar neste, sai dos outros.
+      for (const p of Object.values(projetos)) p.sites = (p.sites || []).filter((s) => !sites.includes(s));
+      projetos[id] = { nome, sites };
+    }
+    await salvarConfig({ ...cfg, projetos });
+    return responder(res, 200, { ok: true, id });
   }
   if (d.acao === 'chave') return responder(res, 200, await chaveDoTime());
   if (d.acao === 'trocarChave') return responder(res, 200, await trocarChave());

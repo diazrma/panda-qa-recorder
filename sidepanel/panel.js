@@ -709,10 +709,13 @@ function renderSettings() {
       <label>Chave do time
         <input type="password" data-setting="teamKey" value="${esc(s.teamKey)}" autocomplete="off">
         <small>Quem administra o servidor passa essa chave. Ela não vai no backup nem no export.</small></label>
+      <label>Seu nome
+        <input type="text" data-setting="teamName" value="${esc(s.teamName)}" maxlength="40" placeholder="ex.: Ana Souza">
+        <small>Aparece no painel do time junto com as suas execuções, para separar por QA. Vazio: você aparece como QA anônimo.</small></label>
       <label class="check"><input type="checkbox" data-setting="teamLearn" ${s.teamLearn !== false ? 'checked' : ''}>
         <span>Aprender com o time<br><small>Baixa o modelo do time e manda só a diferença de pesos que suas correções geraram. Nenhum texto, URL ou print sai do navegador.</small></span></label>
       <label class="check"><input type="checkbox" data-setting="teamRadar" ${s.teamRadar !== false ? 'checked' : ''}>
-        <span>Radar das lojas<br><small>A cada execução manda o apelido do site (não o endereço), o trecho da URL (ex.: /checkout), se passou ou falhou, o tempo e os números da falha.</small></span></label>
+        <span>Radar das lojas<br><small>A cada execução manda o apelido do site (não o endereço), o trecho da URL (ex.: /checkout), se passou ou falhou, o tempo, os números da falha e o seu nome, se preenchido.</small></span></label>
       <div class="banner-text">${teamStatus()}</div>
       <div class="banner-actions" style="margin-top:0"><button class="btn small" data-action="team-sync" ${s.teamServer && s.teamKey ? '' : 'disabled'}>Sincronizar agora</button></div>
       <div class="section-title" style="padding:8px 0 0">ClickUp</div>

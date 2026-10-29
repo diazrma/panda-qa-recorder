@@ -224,6 +224,9 @@ try {
   }, teamUrl);
   await panel.click('[data-action="back"]');
   await panel.click('[data-view="settings"]');
+  await panel.fill('input[data-setting="teamName"]', 'Rodrigo QA');
+  await panel.press('input[data-setting="teamName"]', 'Tab');
+  await panel.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings?.teamName === 'Rodrigo QA');
   await panel.click('[data-action="team-sync"]');
   await panel.waitForFunction(() => /Modelo do time v1/.test(document.body.innerText), null, { timeout: 30000 });
   await panel.screenshot({ path: path.join(outDir, 'config-time.png'), fullPage: true });
@@ -255,6 +258,11 @@ try {
     assert.equal(painel1.radar.resumo.execucoes, 1);
     assert.equal(painel1.radar.resumo.falhas, 1);
     assert.equal(painel1.radar.categorias[0].cat, 'selector');
+  });
+  await check('nome do QA digitado em Configurações > Time chega ao painel do servidor', async () => {
+    assert.deepEqual(painel1.radar.qas.map((q) => q.nome), ['Rodrigo QA']);
+    const soDele = await admin('painel', { filtro: { qa: painel1.radar.qas[0].id } });
+    assert.equal(soDele.radar.resumo.execucoes, 1);
   });
 
   console.log('Relatório por link');

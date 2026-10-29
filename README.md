@@ -76,14 +76,18 @@ Em Configurações > ClickUp, cole o seu token pessoal (ClickUp: avatar > Settin
 
 ## Servidor do time (aprendizado federado e radar)
 
-Em Configurações > Time, informe o endereço do servidor e a chave do time.
+Em Configurações > Time, informe o endereço do servidor, a chave do time e o seu nome (opcional; sem ele você aparece no painel como QA anônimo).
 
 - **Aprender com o time**: a extensão baixa o modelo do time e o ajusta com as suas correções. Só a diferença de pesos (números) vai para o servidor, nunca texto, URL ou print. O servidor junta as contribuições numa rodada, descarta as que pioram o modelo nos casos de referência, faz a média e só publica a versão nova se ela não errar mais que a anterior. As extensões baixam a versão nova em até 15 minutos.
-- **Radar das lojas**: a cada execução vai o apelido do site (hash do endereço), o trecho da URL com só as partes conhecidas do Magento (`/checkout#payment`, produto vira `*`), se passou ou falhou, o tempo e os números da falha. O servidor classifica a falha e aponta quebra nova: um trecho que passava e começou a falhar para mais de um QA na janela recente.
+- **Radar das lojas**: a cada execução vai o apelido do site (hash do endereço), o trecho da URL com só as partes conhecidas do Magento (`/checkout#payment`, produto vira `*`), se passou ou falhou, o tempo, os números da falha e o nome do QA, quando preenchido. O servidor classifica a falha e aponta quebra nova: um trecho que passava e começou a falhar para mais de um QA na janela recente.
 
 - **Link do relatório**: em Compartilhar > Link do relatório (ou **Copiar link do relatório** na falha), o relatório vai para o servidor e vira um link individual, `https://<servidor>/relatorio/<número>`, com botão **Baixar PDF**. O link só abre com a chave do time: na primeira vez a página pede a chave e o navegador fica liberado por 90 dias. Gerar uma chave nova no admin derruba todos os acessos. Com o servidor configurado, o comentário do ClickUp leva esse link em vez do HTML anexado.
 
 O painel do servidor (página inicial, protegida pela senha do admin) mostra os alertas, o mapa de calor por site e trecho, as rodadas do aprendizado, permite voltar o modelo para uma versão anterior e abrir o bug de um alerta no ClickUp. Em **Limpeza do time**, o botão **Resetar aprendizado e sites** apaga o aprendizado federado e os dados históricos do radar, remove os nomes dos sites e publica novamente o modelo base. Isso não apaga testes locais das extensões. O bug automático vem desligado e só cria tarefa quando é ligado no painel.
+
+- **Projetos**: no cartão Projetos, agrupe os sites de um cliente (ex.: MetLife = local + staging). Cada site fica em um projeto só.
+- **Filtro**: no topo do painel, escolha um projeto (ou "Sites sem projeto") e/ou um QA. Resumo, mapa de calor, linha do tempo e motivos passam a valer só para o recorte, e a escolha fica salva no navegador. Com filtro de QA, as quebras novas são as do projeto em que ele está entre os que falharam (uma quebra sempre envolve mais de um QA).
+- Os alertas e as contribuições pendentes mostram o nome de cada QA.
 
 ### Subir o servidor
 

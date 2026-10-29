@@ -92,7 +92,13 @@
   .round:last-child { border-bottom: 0; }
   .round .who { color: var(--muted); font-size: 12px; margin-top: 3px; }
   .scroll { overflow-x: auto; }
-  @media (max-width: 560px) { header { flex-wrap: wrap; } header h1 { flex-basis: 100%; } header h1 small { display: none; } }
+  .filtros { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; margin-bottom: 14px; }
+  .filtros label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+  .filtros select { height: 32px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); min-width: 180px; max-width: 100%; }
+  .sites-check { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 10px 0; font-size: 13px; }
+  .sites-check label { display: inline-flex; gap: 6px; align-items: center; }
+  .sites-check small { color: var(--muted); }
+  @media (max-width: 560px) { .filtros label, .filtros select { width: 100%; } header { flex-wrap: wrap; } header h1 { flex-basis: 100%; } header h1 small { display: none; } }
   @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .two { grid-template-columns: minmax(0, 1fr); } .bar-row { grid-template-columns: 110px 1fr 30px; } }
 </style>
 </head>
@@ -117,6 +123,9 @@ let senha = '';
 try { senha = sessionStorage.getItem('pqa-senha') || ''; } catch {}
 let dados = null;
 let chaveVisivel = '';
+let filtro = { projeto: '', qa: '' };
+try { filtro = { ...filtro, ...JSON.parse(localStorage.getItem('pqa-filtro') || '{}') }; } catch {}
+let editandoProjeto = '';
 
 function toast(t) {
   const el = $('#toast');
@@ -154,7 +163,14 @@ $('#login-form').onsubmit = async (e) => {
 };
 
 async function carregar() {
-  dados = await api('painel');
+  dados = await api('painel', { filtro });
+  const sumiuProjeto = filtro.projeto && filtro.projeto !== '-' && !(dados.config.projetos || {})[filtro.projeto];
+  const sumiuQa = filtro.qa && !(dados.radar.qas || []).some((q) => q.id === filtro.qa);
+  if (sumiuProjeto || sumiuQa) {
+    filtro = { projeto: sumiuProjeto ? '' : filtro.projeto, qa: sumiuQa ? '' : filtro.qa };
+    try { localStorage.setItem('pqa-filtro', JSON.stringify(filtro)); } catch {}
+    dados = await api('painel', { filtro });
+  }
   $('#login').hidden = true;
   $('#app').hidden = false;
   render();
@@ -170,6 +186,53 @@ function aliasDe(texto) {
   let t = String(texto || '').trim();
   if (!/^https?:\/\//i.test(t)) t = 'https://' + t;
   return 's' + fnv1a(new URL(t).origin.toLowerCase()).toString(36);
+}
+
+const qaNome = (id) => {
+  const q = (dados.radar.qas || []).find((x) => x.id === id);
+  return q?.nome || `QA anônimo · ${String(id).slice(0, 6)}`;
+};
+const nomeSite = (alias) => (dados.config.sites || {})[alias] || alias;
+const nomeProjeto = (id) => (dados.config.projetos || {})[id]?.nome || '';
+
+function barraDeFiltros() {
+  const projetos = Object.entries(dados.config.projetos || {}).sort((a, b) => a[1].nome.localeCompare(b[1].nome, 'pt-BR'));
+  const qas = dados.radar.qas || [];
+  const ativo = filtro.projeto || filtro.qa;
+  return `<div class="filtros">
+    <label>Projeto<select data-filtro="projeto">
+      <option value="">Todos os projetos</option>
+      ${projetos.map(([id, p]) => `<option value="${esc(id)}" ${filtro.projeto === id ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}
+      <option value="-" ${filtro.projeto === '-' ? 'selected' : ''}>Sites sem projeto</option>
+    </select></label>
+    <label>QA<select data-filtro="qa">
+      <option value="">Todos os QAs</option>
+      ${qas.map((q) => `<option value="${esc(q.id)}" ${filtro.qa === q.id ? 'selected' : ''}>${esc(qaNome(q.id))} · ${q.execucoes} exec. 24 h</option>`).join('')}
+    </select></label>
+    ${ativo ? '<button class="btn" data-a="limpar-filtro">Limpar filtro</button>' : ''}
+  </div>`;
+}
+
+function cartaoProjetos() {
+  const projetos = Object.entries(dados.config.projetos || {});
+  const ed = editandoProjeto ? dados.config.projetos[editandoProjeto] : null;
+  const usados = new Set(projetos.flatMap(([, p]) => p.sites || []));
+  const todosSites = [...new Set([...Object.keys(dados.config.sites || {}), ...(dados.radar.sitesVistos || []), ...usados])]
+    .sort((a, b) => nomeSite(a).localeCompare(nomeSite(b), 'pt-BR'));
+  const dono = (alias) => projetos.find(([id, p]) => id !== editandoProjeto && (p.sites || []).includes(alias));
+  return `<div class="card" style="margin-bottom:14px"><h2>Projetos<span class="sub">agrupam os sites de um cliente (local, staging, produção)</span></h2>
+    <form id="projeto-form">
+      <div class="form"><label>Nome do projeto<input id="projeto-nome" value="${esc(ed?.nome || '')}" placeholder="MetLife" required maxlength="60"></label>
+        <button class="btn primary" type="submit">${ed ? 'Salvar projeto' : 'Criar projeto'}</button>
+        ${ed ? '<button class="btn" type="button" data-a="projeto-cancelar">Cancelar</button>' : ''}</div>
+      ${todosSites.length ? `<div class="sites-check">${todosSites.map((s) => {
+        const outro = dono(s);
+        return `<label><input type="checkbox" name="site" value="${esc(s)}" ${(ed?.sites || []).includes(s) ? 'checked' : ''}>${esc(nomeSite(s))}${outro ? ` <small>(hoje em ${esc(outro[1].nome)})</small>` : ''}</label>`;
+      }).join('')}</div>` : '<div class="empty">Nenhum site ainda. Dê nome a um site no cartão Sites ou espere os primeiros sinais do radar.</div>'}
+    </form>
+    ${projetos.length ? `<table style="margin-top:6px"><tbody>${projetos.map(([id, p]) => `<tr><td><b>${esc(p.nome)}</b></td><td>${(p.sites || []).map((s) => esc(nomeSite(s))).join(', ') || '<span class="pill">sem sites</span>'}</td>
+      <td class="num"><div class="row-actions" style="justify-content:flex-end"><button class="btn small" data-a="projeto-editar" data-id="${esc(id)}">Editar</button><button class="btn small" data-a="projeto-del" data-id="${esc(id)}">Remover</button></div></td></tr>`).join('')}</tbody></table>` : ''}
+  </div>`;
 }
 
 const corTaxa = (t) => (t >= 0.5 ? 'var(--fail)' : t >= 0.2 ? 'var(--warn)' : 'var(--ok)');
@@ -219,6 +282,7 @@ function render() {
     <button class="btn" data-a="recarregar">Atualizar</button>
     <button class="btn" data-a="sair">Sair</button>
   </header>
+  ${barraDeFiltros()}
 
   <div class="grid kpis">
     <div class="card kpi"><div class="label">Modelo do time</div><div class="val">v${d.atual.versao}</div><div class="hint">acerta ${pct(d.atual.acuracia)} nos casos de referência</div></div>
@@ -233,8 +297,8 @@ function render() {
       <h2>Quebras novas<span class="sub">${d.clickup ? (d.config.autoBug ? 'bug automático no ClickUp ligado' : 'bug no ClickUp com um clique') : 'ClickUp não configurado no servidor'}</span></h2>
       ${r.alertas.length ? r.alertas.map((a) => `
         <div class="alert">
-          <div><b>${esc(a.nome)}</b> <code>${esc(a.fluxo)}</code> <span class="pill ${a.origem || ''}">${esc(a.rotulo)}</span></div>
-          <div class="meta">${a.falhas} de ${a.total} execuções falharam desde ${hora(a.desde)}, com ${a.clientes} QAs. ${a.taxaAntes == null ? 'Sem histórico antes.' : `Antes falhava ${pct(a.taxaAntes)} (${a.execucoesAntes} execuções).`}${a.origem ? ` Origem provável: ${ORIGEM[a.origem]}.` : ''}</div>
+          <div><b>${esc(a.nome)}</b>${a.projeto ? ` <span class="pill">${esc(nomeProjeto(a.projeto))}</span>` : ''} <code>${esc(a.fluxo)}</code> <span class="pill ${a.origem || ''}">${esc(a.rotulo)}</span></div>
+          <div class="meta">${a.falhas} de ${a.total} execuções falharam desde ${hora(a.desde)}, com ${a.clientes} QAs (${a.qas.map((q) => esc(qaNome(q))).join(', ')}). ${a.taxaAntes == null ? 'Sem histórico antes.' : `Antes falhava ${pct(a.taxaAntes)} (${a.execucoesAntes} execuções).`}${a.origem ? ` Origem provável: ${ORIGEM[a.origem]}.` : ''}</div>
           <div class="act">${a.bug ? `<a class="btn small" href="${esc(a.bug.url)}" target="_blank">Ver bug</a>` : `<button class="btn small primary" data-a="bug" data-chave="${esc(a.chave)}" ${d.clickup ? '' : 'disabled title="Configure CLICKUP_TOKEN e CLICKUP_LISTA"'}>Abrir bug no ClickUp</button>`}</div>
         </div>`).join('') : '<div class="empty">Nenhuma quebra nova. Tudo que falha agora já falhava antes, ou foi um QA só.</div>'}
     </div>
@@ -245,10 +309,10 @@ function render() {
       </div>
     </div>
     <div class="card" style="margin-top:14px"><h2>Mapa de calor<span class="sub">site × trecho da URL, 24 h</span></h2>
-      ${r.mapa.length ? `<div class="scroll"><table><thead><tr><th>Site</th><th>Trecho</th><th class="num">Execuções</th><th class="num">Testes</th><th>Falhas</th><th>Motivo mais comum</th></tr></thead><tbody>
-        ${r.mapa.map((m) => `<tr><td>${esc(m.nome)}${m.nome === m.site ? ' <span class="pill" title="Dê um nome em Sites, abaixo">sem nome</span>' : ''}</td><td><code>${esc(m.fluxo)}</code></td><td class="num">${m.total}</td><td class="num">${m.testes}</td>
+      ${r.mapa.length ? `<div class="scroll"><table><thead><tr><th>Projeto</th><th>Site</th><th>Trecho</th><th class="num">Execuções</th><th class="num">Testes</th><th>Falhas</th><th>Motivo mais comum</th></tr></thead><tbody>
+        ${r.mapa.map((m) => `<tr><td>${m.projeto ? esc(nomeProjeto(m.projeto)) : '<span class="pill">sem projeto</span>'}</td><td>${esc(m.nome)}${m.nome === m.site ? ' <span class="pill" title="Dê um nome em Sites, abaixo">sem nome</span>' : ''}</td><td><code>${esc(m.fluxo)}</code></td><td class="num">${m.total}</td><td class="num">${m.testes}</td>
           <td><span class="heat"><i style="width:${Math.max(4, m.taxa * 100)}%;background:${corTaxa(m.taxa)}"></i></span>${pct(m.taxa)}</td><td>${m.categoria ? esc((r.categorias.find((c) => c.cat === m.categoria) || {}).rotulo || m.categoria) : '–'}</td></tr>`).join('')}
-      </tbody></table></div>` : '<div class="empty">Ainda sem sinais. Ligue o "Radar das lojas" nas Configurações da extensão.</div>'}
+      </tbody></table></div>` : (filtro.projeto || filtro.qa ? '<div class="empty">Nada nas últimas 24 h com este filtro.</div>' : '<div class="empty">Ainda sem sinais. Ligue o "Radar das lojas" nas Configurações da extensão.</div>')}
     </div>
   </section>
 
@@ -262,7 +326,7 @@ function render() {
         </tbody></table></div>
       </div>
       <div class="card"><h2>Contribuições pendentes<span class="sub">rodada fecha com ${d.config.minClientes} QA(s)</span></h2>
-        ${d.pendentes.length ? `<table><tbody>${d.pendentes.map((p) => `<tr><td class="mono">${esc(p.cliente)}</td><td>${hora(p.at)}</td><td class="num"><button class="btn small" data-a="descartar" data-id="${esc(p.id)}">Descartar</button></td></tr>`).join('')}</tbody></table>
+        ${d.pendentes.length ? `<table><tbody>${d.pendentes.map((p) => `<tr><td>${p.nome ? esc(p.nome) : `<span class="mono">${esc(p.cliente)}</span>`}</td><td>${hora(p.at)}</td><td class="num"><button class="btn small" data-a="descartar" data-id="${esc(p.id)}">Descartar</button></td></tr>`).join('')}</tbody></table>
           <div class="row-actions" style="margin-top:10px"><button class="btn small primary" data-a="rodada">Fechar rodada agora</button></div>` : '<div class="empty">Nenhuma. Quando um QA corrige um diagnóstico, a diferença de pesos aparece aqui.</div>'}
         <h2 style="margin-top:18px">Últimas rodadas</h2>
         ${d.rodadas.length ? d.rodadas.map((x) => `<div class="round">
@@ -284,6 +348,7 @@ function render() {
         <button class="btn small" data-a="chave-trocar" style="margin-left:auto;color:var(--fail)">Gerar nova chave</button>
       </div>
     </div>
+    ${cartaoProjetos()}
     <div class="grid two">
       <div class="card"><h2>Sites</h2>
         <p style="margin:0 0 10px;color:var(--muted);font-size:13px">O servidor só conhece o apelido de cada loja. Digite o endereço aqui: o apelido é calculado no seu navegador e só o nome que você der é salvo.</p>
@@ -317,6 +382,23 @@ function render() {
       await carregar();
     } catch (err) { toast(err.message); }
   };
+  $('#projeto-form').onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const sites = [...e.target.querySelectorAll('input[name=site]:checked')].map((i) => i.value);
+      await api('projeto', { id: editandoProjeto, nome: $('#projeto-nome').value, sites });
+      toast(editandoProjeto ? 'Projeto salvo.' : 'Projeto criado.');
+      editandoProjeto = '';
+      await carregar();
+    } catch (err) { toast(err.message); }
+  };
+  document.querySelectorAll('[data-filtro]').forEach((s) => {
+    s.onchange = async () => {
+      filtro = { ...filtro, [s.dataset.filtro]: s.value };
+      try { localStorage.setItem('pqa-filtro', JSON.stringify(filtro)); } catch {}
+      try { await carregar(); } catch (err) { toast(err.message); }
+    };
+  });
   $('#cfg-form').onsubmit = async (e) => {
     e.preventDefault();
     try {
@@ -341,12 +423,28 @@ document.addEventListener('click', async (e) => {
       try { localStorage.setItem('pqa-tema', t); } catch {}
       return render();
     }
+    if (a === 'projeto-editar' || a === 'projeto-cancelar') {
+      editandoProjeto = a === 'projeto-editar' ? b.dataset.id : '';
+      render();
+      if (editandoProjeto) $('#projeto-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (a === 'limpar-filtro') {
+      filtro = { projeto: '', qa: '' };
+      try { localStorage.removeItem('pqa-filtro'); } catch {}
+    }
     b.disabled = true;
     if (a === 'ativar' && confirm(`Colocar a v${b.dataset.versao} como modelo do time? As extensões baixam em até 15 min.`)) { await api('ativar', { versao: Number(b.dataset.versao) }); toast(`v${b.dataset.versao} em uso.`); }
     if (a === 'rodada') { const r = await api('rodada'); toast(r.publicado ? `Rodada fechada: v${r.publicado} publicada.` : `Rodada fechada sem publicar: ${r.motivo}`); }
     if (a === 'descartar') { await api('descartar', { id: b.dataset.id }); toast('Contribuição descartada.'); }
     if (a === 'bug') { const bug = await api('bug', { chave: b.dataset.chave }); toast('Bug aberto no ClickUp.'); window.open(bug.url, '_blank'); }
     if (a === 'site-del') await api('site', { alias: b.dataset.alias, nome: '' });
+    if (a === 'projeto-del') {
+      if (!confirm(`Remover o projeto ${nomeProjeto(b.dataset.id)}? Os sites continuam, só ficam sem projeto.`)) { b.disabled = false; return; }
+      await api('projeto', { id: b.dataset.id, nome: '' });
+      if (filtro.projeto === b.dataset.id) filtro = { ...filtro, projeto: '' };
+      toast('Projeto removido.');
+    }
     if (a === 'resetar') {
       const confirmou = confirm('Isso é irreversível: o histórico do aprendizado, contribuições, rodadas, dados do radar e nomes de sites serão apagados. O modelo base será publicado novamente. Os testes nas extensões não serão apagados. Continuar?');
       if (!confirmou) { b.disabled = false; return; }
@@ -377,7 +475,9 @@ document.addEventListener('click', async (e) => {
 
 if (senha) carregar().catch(() => sair());
 else sair();
-setInterval(() => { if (senha && !document.hidden) carregar().catch(() => {}); }, 60000);
+// Não recarrega enquanto alguém digita num formulário: o render apagaria o que foi digitado.
+const digitando = () => Boolean(editandoProjeto || document.activeElement?.closest('form'));
+setInterval(() => { if (senha && !document.hidden && !digitando()) carregar().catch(() => {}); }, 60000);
 </script>
 </body>
 </html>

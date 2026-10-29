@@ -37,7 +37,8 @@ export function analisar(sinais, { agora = Date.now(), janelaHoras = 2, minClien
     const recentes = lista.filter((s) => s.at >= agora - janela);
     const antes = lista.filter((s) => s.at < agora - janela && s.at >= agora - 7 * 24 * HORA);
     const rf = recentes.filter((s) => s.st === 'failed');
-    const clientes = new Set(rf.map((s) => s.c)).size;
+    const quem = [...new Set(rf.map((s) => s.c))];
+    const clientes = quem.length;
     const taxaAntes = antes.length ? antes.filter((s) => s.st === 'failed').length / antes.length : null;
     const quebrouAgora = taxaAntes === null ? rf.length === recentes.length : taxaAntes <= 0.25;
     if (recentes.length >= 3 && rf.length / recentes.length >= 0.5 && clientes >= minClientes && quebrouAgora) {
@@ -45,7 +46,7 @@ export function analisar(sinais, { agora = Date.now(), janelaHoras = 2, minClien
       const desde = Math.min(...rf.map((s) => s.at));
       alertas.push({
         chave: `${site}|${fluxo}|${new Date(desde).toISOString().slice(0, 10)}`,
-        site, nome: sites[site] || site, fluxo, falhas: rf.length, total: recentes.length, clientes, taxaAntes,
+        site, nome: sites[site] || site, fluxo, falhas: rf.length, total: recentes.length, clientes, qas: quem, taxaAntes,
         execucoesAntes: antes.length, desde, categoria: cat, rotulo: label(cat), origem: origem(cat),
       });
     }

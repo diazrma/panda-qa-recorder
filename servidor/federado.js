@@ -90,7 +90,7 @@ export async function estado() {
 }
 
 export async function config() {
-  return { minClientes: 2, autoBug: false, janelaHoras: 2, sites: {}, ...(await lerJSON('estado/config.json', {})) };
+  return { minClientes: 2, autoBug: false, janelaHoras: 2, sites: {}, projetos: {}, ...(await lerJSON('estado/config.json', {})) };
 }
 
 export const salvarConfig = (c) => gravar('estado/config.json', c);
