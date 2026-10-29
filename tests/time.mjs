@@ -189,7 +189,10 @@ try {
     const t = tests.find((x) => x.id === 'm2');
     t.qaSince = Date.now() - 25 * 60e3;
     t.lastRun = { status: 'passed', at: Date.now(), ms: 8000, failedIndex: -1, results: [{ status: 'passed', ms: 1 }, { status: 'passed', ms: 1 }], logs: [] };
-    await chrome.storage.local.set({ tests });
+    // Print de cada passo ligado: os prints da mesma execução vão anexados na tarefa.
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const { settings = {} } = await chrome.storage.local.get('settings');
+    await chrome.storage.local.set({ tests, settings: { ...settings, stepShots: true }, 'shots:m2': { at: t.lastRun.at, status: 'passed', list: { 0: png, 1: png } } });
   });
   await panel.waitForFunction(() => document.querySelector('#cu-min')?.value === '25');
   await panel.check('#cu-status');
@@ -212,6 +215,16 @@ try {
     const put = clickup.find((c) => c.method === 'PUT' && c.path === '/api/v2/task/86ajthyru');
     assert.equal(JSON.parse(put.body).status, 'qa aprovado');
   });
+  await check('com print de cada passo, anexa os prints e o comentário rico diz qual é de cada passo', async () => {
+    const anexos = clickup.filter((c) => c.path === '/api/v2/task/86ajthyru/attachment').map((c) => (c.body.match(/filename="([^"]+)"/) || [])[1]);
+    assert.deepEqual(anexos.filter((n) => n.startsWith('passo-')), ['passo-01.jpg', 'passo-02.jpg']);
+    const blocos = JSON.parse(clickup.find((c) => c.path === '/api/v2/task/86ajthyru/comment').body).comment;
+    const texto = blocos.map((b) => b.text).join('');
+    assert.match(texto, /✅ Teste "Login cliente": Passou/);
+    assert.match(texto, /1\. ✅ .*print: passo-01\.jpg/);
+    assert.match(texto, /2 print\(s\) dos passos anexado/);
+    assert.ok(blocos.some((b) => b.attributes?.bold && /Passos \(2\)/.test(b.text)));
+  });
   await check('zera o relógio da sessão depois de lançar', async () => {
     const t = await sw.evaluate(async () => (await chrome.storage.local.get('tests')).tests.find((x) => x.id === 'm2'));
     assert.equal(t.qaSince, null);
@@ -220,7 +233,7 @@ try {
   console.log('Servidor do time');
   await sw.evaluate(async (url) => {
     const { settings = {} } = await chrome.storage.local.get('settings');
-    await chrome.storage.local.set({ settings: { ...settings, teamServer: url, teamKey: 'chave-do-time-e2e' } });
+    await chrome.storage.local.set({ settings: { ...settings, teamServer: url, teamKey: 'chave-do-time-e2e', teamRuns: true } });
   }, teamUrl);
   await panel.click('[data-action="back"]');
   await panel.click('[data-view="settings"]');
@@ -254,6 +267,43 @@ try {
   await sw.evaluate(() => self.qa.flushSignals ? self.qa.flushSignals() : null);
   await panel.evaluate(() => chrome.runtime.sendMessage({ type: 'radar:flush' }));
   const painel1 = await admin('painel');
+  const prints = await sw.evaluate(async () => (await chrome.storage.local.get('shots:l1'))['shots:l1']);
+  const l1 = await sw.evaluate(async () => (await chrome.storage.local.get('tests')).tests.find((t) => t.id === 'l1'));
+  await check('print de cada passo: um print reduzido por passo executado, inclusive o da falha', async () => {
+    const executados = l1.lastRun.results.map((r, i) => (['passed', 'healed', 'failed', 'warning'].includes(r.status) ? i : -1)).filter((i) => i >= 0);
+    assert.deepEqual(Object.keys(prints.list).map(Number), executados);
+    assert.equal(prints.at, l1.lastRun.at);
+    assert.ok(Object.values(prints.list).every((s) => /^data:image\/jpeg;base64,/.test(s) && s.length < 400_000));
+  });
+  const execs = await admin('painel').then((p) => p.execucoes);
+  await check('execução vai para a seção Testes do painel com os prints', async () => {
+    assert.equal(execs.length, 1);
+    assert.equal(execs[0].nome, l1.name);
+    assert.equal(execs[0].status, 'failed');
+    assert.equal(execs[0].prints, Object.keys(prints.list).length);
+    const completo = await admin('execucao', { id: execs[0].id });
+    assert.equal(completo.q, 'Rodrigo QA');
+    assert.ok(completo.descs.every(Boolean));
+  });
+  await panel.click('[data-action="back"]');
+  await sw.evaluate(async () => {
+    const { ui = {} } = await chrome.storage.local.get('ui');
+    await chrome.storage.local.set({ ui: { ...ui, site: '' } });
+  });
+  await panel.click('.card:has-text("' + l1.name + '")');
+  await panel.waitForSelector('.step-thumb');
+  await check('painel mostra a miniatura em cada passo e abre o passo a passo com anterior/próximo', async () => {
+    assert.equal((await panel.$$('.step-thumb')).length, Object.keys(prints.list).length);
+    await panel.click('.section-title [data-action="step-shot"]');
+    await panel.waitForSelector('dialog[open] .shot-full');
+    assert.match(await panel.textContent('dialog .dlg-head'), /Passo 1 de/);
+    await panel.keyboard.press('ArrowRight');
+    assert.match(await panel.textContent('dialog .viewer-count'), /^2 \//);
+    await panel.screenshot({ path: path.join(outDir, 'passo-a-passo.png') });
+    await panel.click('dialog [data-dlg="cancel"]');
+  });
+  await panel.click('[data-action="back"]');
+  await panel.click('[data-view="settings"]');
   await check('servidor recebe o sinal e classifica a falha pelo vetor', async () => {
     assert.equal(painel1.radar.resumo.execucoes, 1);
     assert.equal(painel1.radar.resumo.falhas, 1);

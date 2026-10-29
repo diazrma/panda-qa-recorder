@@ -7,6 +7,8 @@
 //   config     { minClientes, janelaHoras, autoBug }
 //   site       { alias, nome }  -> dá nome a um site do radar (o servidor só conhece o apelido)
 //   projeto    { id?, nome, sites } -> cria/edita um projeto (grupo de sites); nome vazio remove
+//   execucao   { id }           -> execução completa de um teste (passos, resultado e prints)
+//   execucaoDel { id }          -> apaga a execução de um teste do painel
 //   bug        { chave }        -> abre no ClickUp o bug de um alerta do radar
 //   chave                       -> mostra a chave do time (a que os QAs colam na extensão)
 //   trocarChave                 -> gera uma chave nova; a antiga para de funcionar na hora
@@ -14,7 +16,8 @@ import { randomUUID } from 'node:crypto';
 import { rota, responder, exigirAdmin, lerCorpo } from '../servidor/http.js';
 import { garantirInicial, config, salvarConfig, ativarVersao, fecharRodada, listarVersoes, resetarAprendizado } from '../servidor/federado.js';
 import { listar, lerJSON, apagar } from '../servidor/armazem.js';
-import { painelRadar, abrirBug } from '../servidor/sinais.js';
+import { painelRadar, abrirBug, projetoDosSites } from '../servidor/sinais.js';
+import { listarExecucoes, lerExecucao, apagarExecucao, apagarTodasExecucoes } from '../servidor/execucoes.js';
 import { clickupLigado } from '../servidor/clickup.js';
 import { chaveDoTime, trocarChave } from '../servidor/chave.js';
 
@@ -41,6 +44,7 @@ export default rota(async (req, res) => {
       pendentes,
       config: cfg,
       radar,
+      execucoes: await execucoesDoFiltro(cfg, filtro),
       clickup: clickupLigado(),
       chave: await chaveDoTime().then(({ at, origem }) => ({ at, origem })),
     });
@@ -87,12 +91,22 @@ export default rota(async (req, res) => {
     await salvarConfig({ ...cfg, projetos });
     return responder(res, 200, { ok: true, id });
   }
+  if (d.acao === 'execucao') {
+    const ex = await lerExecucao(String(d.id || ''));
+    if (!ex) return responder(res, 404, { erro: 'Execução não encontrada.' });
+    return responder(res, 200, ex);
+  }
+  if (d.acao === 'execucaoDel') {
+    await apagarExecucao(String(d.id || ''));
+    return responder(res, 200, { ok: true });
+  }
   if (d.acao === 'chave') return responder(res, 200, await chaveDoTime());
   if (d.acao === 'trocarChave') return responder(res, 200, await trocarChave());
   if (d.acao === 'bug') return responder(res, 200, await abrirBug(String(d.chave || ''), cfg));
   if (d.acao === 'resetar') {
     const [sinais, bugs] = await Promise.all([listar('sinais/'), listar('estado/bugs.json')]);
     const aprendizado = await resetarAprendizado();
+    const execucoesRemovidas = await apagarTodasExecucoes();
     await apagar([...sinais, ...bugs].map((item) => item.chave));
     await salvarConfig({ ...cfg, sites: {} });
     return responder(res, 200, {
@@ -101,7 +115,16 @@ export default rota(async (req, res) => {
       sinaisRemovidos: sinais.length,
       bugsRemovidos: bugs.length,
       sitesRemovidos: Object.keys(cfg.sites || {}).length,
+      execucoesRemovidas,
     });
   }
   responder(res, 400, { erro: 'ação desconhecida' });
 });
+
+async function execucoesDoFiltro(cfg, filtro) {
+  const doSite = projetoDosSites(cfg.projetos);
+  return (await listarExecucoes())
+    .map((e) => ({ ...e, projeto: doSite[e.s] || null }))
+    .filter((e) => (!filtro.projeto || (e.projeto || '-') === filtro.projeto) && (!filtro.qa || e.c === filtro.qa))
+    .slice(0, 200);
+}

@@ -7,7 +7,7 @@ import { newRunContext, resolveStep } from './lib/vars.js';
 import { buildBackup } from './lib/backup.js';
 import { failureOf } from './lib/diagnosis.js';
 import { siteAlias, fluxoDe, sparseVector } from './lib/anon.js';
-import { queueSignal, flushSignals } from './lib/team.js';
+import { queueSignal, flushSignals, uploadRun } from './lib/team.js';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 
@@ -189,12 +189,39 @@ async function execStep(tabId, step, settings) {
   }
 }
 
+// O Chrome aceita no máximo 2 captureVisibleTab por segundo; acima disso a chamada falha.
+const SHOT_GAP_MS = 550;
+let lastShotAt = 0;
+
 async function screenshot(tabId) {
+  const wait = lastShotAt + SHOT_GAP_MS - Date.now();
+  if (wait > 0) await sleep(wait);
+  lastShotAt = Date.now();
   try {
     const tab = await chrome.tabs.get(tabId);
     return await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 70 });
   } catch {
     return null;
+  }
+}
+
+/** Reduz o print para caber dezenas por execução no storage e no envio ao servidor (~50 KB cada). */
+async function shrinkShot(dataUrl, width = 960, quality = 0.6) {
+  if (!dataUrl) return null;
+  try {
+    const bmp = await createImageBitmap(await (await fetch(dataUrl)).blob());
+    const scale = Math.min(1, width / bmp.width);
+    const canvas = new OffscreenCanvas(Math.round(bmp.width * scale), Math.round(bmp.height * scale));
+    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return dataUrl;
   }
 }
 
@@ -279,6 +306,7 @@ async function runTest(testId, tabId, startIndex = 0, job = null) {
   active = { tabId, run };
   await setSession('run', run);
   if (test.cleanSession !== false) await cleanSiteData(test, tabId, ctx);
+  const stepShots = settings.stepShots ? {} : null;
 
   let error = null;
   let failedIndex = -1;
@@ -303,6 +331,7 @@ async function runTest(testId, tabId, startIndex = 0, job = null) {
         break;
       }
     }
+    if (stepShots) stepShots[i] = await shrinkShot(await screenshot(tabId));
     await setSession('run', run);
   }
 
@@ -319,10 +348,14 @@ async function runTest(testId, tabId, startIndex = 0, job = null) {
   run.index = failedIndex;
   run.error = error;
   // O print fica até o próximo lote, mesmo que repetições seguintes passem.
+  let failShot = null;
   if (run.status === 'failed') {
-    const shot = await screenshot(tabId);
-    if (shot) await chrome.storage.local.set({ ['shot:' + testId]: shot });
+    failShot = await screenshot(tabId);
+    if (failShot) await chrome.storage.local.set({ ['shot:' + testId]: failShot });
+    if (stepShots && failShot) stepShots[failedIndex] = await shrinkShot(failShot);
   }
+  // Prints passo a passo: só os da última execução, para o storage não crescer a cada repetição.
+  if (stepShots) await chrome.storage.local.set({ ['shots:' + testId]: { at: run.finishedAt, status: run.status, list: stepShots } });
   await setSession('run', run);
   await enqueue(() => updateTest(testId, (t) => {
     t.lastRun = {
@@ -338,6 +371,10 @@ async function runTest(testId, tabId, startIndex = 0, job = null) {
     if (!t.qaSince) t.qaSince = run.startedAt;
   }));
   if (run.status !== 'stopped') await radarSignal(testId, tabId, run).catch((e) => console.warn('radar', e));
+  if (run.status !== 'stopped') {
+    const shrunk = failShot && !stepShots ? { [failedIndex]: await shrinkShot(failShot) } : stepShots;
+    await sendRunToTeam(testId, tabId, run, shrunk).catch((e) => console.warn('execução no servidor', e));
+  }
   return run.status;
 }
 
@@ -351,6 +388,15 @@ async function radarSignal(testId, tabId, run) {
   const signal = { s: siteAlias(origin), f: fluxoDe(url || origin), t: siteAlias(testId), st: run.status, ms: run.finishedAt - run.startedAt, at: run.finishedAt };
   if (run.status === 'failed') signal.v = sparseVector(failureOf(test, test.lastRun));
   await queueSignal(signal);
+}
+
+// Execução completa para o painel do time (opcional, Configurações > Time): passos, resultado e prints.
+async function sendRunToTeam(testId, tabId, run, shots) {
+  const test = await getTest(testId);
+  let url = run.diagnostics?.url;
+  if (!url) url = await chrome.tabs.get(tabId).then((t) => t.url, () => null);
+  const origin = test.site || (url && /^https?:/.test(url) ? new URL(url).origin : null);
+  await uploadRun({ test, run: test.lastRun, site: origin ? siteAlias(origin) : '', testAlias: siteAlias(testId), shots: shots || {} });
 }
 
 async function abortableSleep(ms) {

@@ -13,17 +13,22 @@ import { toReportHtml } from '../lib/report.js';
 
 const novoId = () => Array.from({ length: 18 }, (_, i) => randomInt(i ? 0 : 1, 10)).join('');
 const texto = (v, n) => String(v ?? '').slice(0, n);
+const PRINT = /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/;
 
 function limpar(d) {
   const t = d.test || {};
   const r = d.run || {};
   const steps = (Array.isArray(t.steps) ? t.steps : []).slice(0, 300);
   if (!steps.length) throw Object.assign(new Error('Relatório sem passos.'), { status: 400 });
-  const shot = typeof d.shot === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(d.shot) ? d.shot : null;
+  const shot = typeof d.shot === 'string' && PRINT.test(d.shot) ? d.shot : null;
   const diag = d.diag && typeof d.diag === 'object'
     ? { label: texto(d.diag.label, 120), explain: texto(d.diag.explain, 1000), fix: texto(d.diag.fix, 1000), confidence: Math.max(0, Math.min(1, Number(d.diag.confidence) || 0)) }
     : null;
-  return { test: { name: texto(t.name, 200) || 'Teste', steps }, run: r, diag, shot, criadoEm: Date.now() };
+  const stepShots = {};
+  for (const [i, s] of Object.entries(d.stepShots && typeof d.stepShots === 'object' ? d.stepShots : {})) {
+    if (Number(i) >= 0 && Number(i) < steps.length && typeof s === 'string' && PRINT.test(s)) stepShots[Number(i)] = s;
+  }
+  return { test: { name: texto(t.name, 200) || 'Teste', steps }, run: r, diag, shot, stepShots, criadoEm: Date.now() };
 }
 
 const BARRA = (nonce) => `
@@ -88,7 +93,7 @@ export default rota(async (req, res) => {
   }
   if (req.method === 'POST') {
     await exigirEquipe(req);
-    const rel = limpar(await lerCorpo(req, 4_000_000));
+    const rel = limpar(await lerCorpo(req, 4_400_000));
     const id = novoId();
     await gravar(`relatorios/${id}.json`, rel);
     const host = req.headers['x-forwarded-host'] || req.headers.host;
@@ -108,7 +113,7 @@ export default rota(async (req, res) => {
     return res.end('<!doctype html><meta charset="utf-8"><title>Relatório não encontrado</title><p style="font:16px system-ui;margin:40px">Relatório não encontrado. Confira o link.</p>');
   }
   const nonce = randomBytes(12).toString('base64');
-  const html = toReportHtml(rel.test, rel.run, rel.shot, rel.diag)
+  const html = toReportHtml(rel.test, rel.run, rel.shot, rel.diag, rel.stepShots)
     .replace('<body>', `<body>${BARRA(nonce)}`)
     .replace('<style>', `<style nonce="${nonce}">`)
     .replace('Gerado pelo Panda QA Recorder.', `Gerado pelo Panda QA Recorder em ${new Date(rel.criadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.`);

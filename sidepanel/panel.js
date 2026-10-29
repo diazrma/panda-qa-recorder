@@ -9,7 +9,7 @@ import { toJSON, toDevJSON, toMarkdown, toPlaywright, parseImport } from '../lib
 import { encodeShare, decodeShare } from '../lib/share.js';
 import { CATEGORIES, diagnose, learn, failureOf, learnedCount } from '../lib/diagnosis.js';
 import { BUILTINS } from '../lib/vars.js';
-import { toReportHtml, toSummaryText, LOG_KIND } from '../lib/report.js';
+import { toReportHtml, toSummaryText, toClickupComment, stepShotName, LOG_KIND } from '../lib/report.js';
 import { buildFullBackup, isBackup, isFullBackup, restoreBackup, restoreFullBackup } from '../lib/backup.js';
 import { parseTaskRef, getTask, searchTasks, logTime, comment, attach, setStatus, taskTimes, fmtDuration } from '../lib/clickup.js';
 import { syncTeam, pushContribution, teamConfig, uploadReport } from '../lib/team.js';
@@ -22,6 +22,7 @@ const ICON = {
   back: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3 5 8l5 5"/></svg>',
   edit: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3z"/></svg>',
   trash: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>',
+  image: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="10" rx="1.5"/><circle cx="6" cy="6.5" r="1.2"/><path d="M2.5 12l3.5-3.5 2.5 2.5 2-2 3 3"/></svg>',
   eye: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>',
   eyeOff: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 2l12 12M6.6 6.6a2 2 0 0 0 2.8 2.8M4.2 4.7C2.5 5.9 1.5 8 1.5 8s2.5 4.5 6.5 4.5c1.3 0 2.4-.4 3.4-1M7 3.6c.3 0 .7-.1 1-.1 4 0 6.5 4.5 6.5 4.5s-.5 1-1.5 2"/></svg>',
   grip: '<svg viewBox="0 0 16 16" fill="currentColor" style="width:12px"><circle cx="5" cy="4" r="1.1"/><circle cx="11" cy="4" r="1.1"/><circle cx="5" cy="8" r="1.1"/><circle cx="11" cy="8" r="1.1"/><circle cx="5" cy="12" r="1.1"/><circle cx="11" cy="12" r="1.1"/></svg>',
@@ -56,6 +57,7 @@ const state = {
   suite: null,
   pick: null,
   shot: null,
+  stepShots: null,
   backup: null,
   update: null,
   site: '',
@@ -202,13 +204,23 @@ async function load() {
   if (state.testId) {
     const key = 'shot:' + state.testId;
     state.shot = (await chrome.storage.local.get(key))[key] || null;
+    // Os prints dos passos pesam (dezenas de imagens): só relê quando mudam ou quando troca de teste.
+    if (shotsFor !== state.testId || shotsDirty) {
+      const k = 'shots:' + state.testId;
+      state.stepShots = (await chrome.storage.local.get(k))[k] || null;
+      shotsFor = state.testId;
+      shotsDirty = false;
+    }
     if (!currentTest()) state.view = 'list';
   }
   render();
 }
 
 let loadTimer;
-chrome.storage.onChanged.addListener(() => {
+let shotsFor = null;
+let shotsDirty = false;
+chrome.storage.onChanged.addListener((changes) => {
+  if (Object.keys(changes).some((k) => k.startsWith('shots:'))) shotsDirty = true;
   clearTimeout(loadTimer);
   loadTimer = setTimeout(load, 40);
 });
@@ -439,11 +451,17 @@ function failureDetails(run, withShot) {
     </div>`;
 }
 
+/** Prints dos passos, só se forem da mesma execução do relatório. */
+function runShots(test, run) {
+  if (!state.stepShots || shotsFor !== test.id || state.stepShots.at !== run.at) return null;
+  return state.stepShots.list || null;
+}
+
 const teamOn = () => Boolean(state.settings.teamServer && state.settings.teamKey);
 
 async function reportLink(test, run) {
   const diag = run.error ? await diagFor(test, run).catch(() => null) : null;
-  return uploadReport(test, run, run.status === 'failed' ? state.shot : null, diag);
+  return uploadReport(test, run, run.status === 'failed' ? state.shot : null, diag, runShots(test, run));
 }
 
 function renderBanner(test) {
@@ -517,6 +535,7 @@ function renderTest() {
           ${st && st.healed ? `<div class="step-healed">Seletor não encontrado: a auto-correção achou "${esc(st.healed.text || selectorToString(st.healed.selectors[0] || {}))}" e seguiu.
             <button class="btn small" data-action="apply-heal" data-index="${i}">${ICON.check}Aplicar correção</button></div>` : ''}
           ${stepLogs(test, i).slice(0, 3).map((l) => `<div class="step-log" title="${esc(l.text)}">${esc(logText(l))}</div>`).join('')}
+          ${shotOf(i) ? `<img class="step-thumb" src="${shotOf(i)}" alt="Tela depois do passo ${i + 1}" data-action="step-shot" data-index="${i}" title="Ver o print deste passo">` : ''}
         </div>
         <div class="step-actions">
           <button class="icon" data-action="run-from" data-index="${i}" title="Executar a partir deste passo">${ICON.play}</button>
@@ -560,7 +579,7 @@ function renderTest() {
     ${renderForecast(test)}
     ${renderBanner(test)}
     ${renderClickUp(test)}
-    <div class="section-title"><span>Passos (${test.steps.length})</span></div>
+    <div class="section-title"><span>Passos (${test.steps.length})</span>${shotIndexes().length ? `<button class="btn small ghost" data-action="step-shot" data-index="${shotIndexes()[0]}">${ICON.image}Ver passo a passo (${shotIndexes().length})</button>` : ''}</div>
     ${test.steps.length
       ? `<ol class="steps ${busy ? 'locked' : ''}">${steps}</ol>`
       : `<div class="empty"><strong>Sem passos</strong>Clique em <b>Gravar</b> e faça o fluxo na página.</div>`}
@@ -690,6 +709,8 @@ function renderSettings() {
       <label>Seletor de carregamento
         <input type="text" id="set-loader" data-setting="loaderSelector" value="${esc(s.loaderSelector)}">
         <small>Enquanto algum desses elementos estiver visível, o passo espera. O padrão cobre o loader do Magento.</small></label>
+      <label class="check"><input type="checkbox" data-setting="stepShots" ${s.stepShots ? 'checked' : ''}>
+        <span>Print de cada passo<br><small>Tira um print da tela depois de cada passo (só a última execução de cada teste fica guardada). Os prints aparecem nos passos, no relatório e no ClickUp. Deixa a execução cerca de meio segundo mais lenta por passo.</small></span></label>
       <div class="section-title" style="padding:8px 0 0">Atualização</div>
       <div class="banner-text">Versão instalada: <b>${esc(chrome.runtime.getManifest().version)}</b>${state.update?.checkedAt ? ` · verificado em ${new Date(state.update.checkedAt).toLocaleString('pt-BR')}` : ''}${state.update?.available ? ` · <b>nova versão ${esc(state.update.latest)} disponível</b>` : state.update && !state.update.error ? ' · você está na versão mais recente' : ''}${state.update?.error ? `<br>${esc(state.update.error)}` : ''}</div>
       <div class="banner-actions" style="margin-top:0">
@@ -716,6 +737,8 @@ function renderSettings() {
         <span>Aprender com o time<br><small>Baixa o modelo do time e manda só a diferença de pesos que suas correções geraram. Nenhum texto, URL ou print sai do navegador.</small></span></label>
       <label class="check"><input type="checkbox" data-setting="teamRadar" ${s.teamRadar !== false ? 'checked' : ''}>
         <span>Radar das lojas<br><small>A cada execução manda o apelido do site (não o endereço), o trecho da URL (ex.: /checkout), se passou ou falhou, o tempo, os números da falha e o seu nome, se preenchido.</small></span></label>
+      <label class="check"><input type="checkbox" data-setting="teamRuns" ${s.teamRuns ? 'checked' : ''}>
+        <span>Enviar execuções para o painel do time<br><small>A cada execução manda o nome do teste, os passos, o resultado e os prints (se ligados) para a seção Testes do painel, protegida pela chave do time. Fica só a última execução de cada teste.</small></span></label>
       <div class="banner-text">${teamStatus()}</div>
       <div class="banner-actions" style="margin-top:0"><button class="btn small" data-action="team-sync" ${s.teamServer && s.teamKey ? '' : 'disabled'}>Sincronizar agora</button></div>
       <div class="section-title" style="padding:8px 0 0">ClickUp</div>
@@ -943,6 +966,50 @@ function showShot() {
   dlg.showModal();
 }
 
+// ---------- prints passo a passo ----------
+
+/** Print do passo na última execução (só quando a opção "Print de cada passo" estava ligada). */
+function shotOf(i) {
+  return state.stepShots && shotsFor === state.testId ? state.stepShots.list?.[i] || null : null;
+}
+
+function shotIndexes() {
+  if (!state.stepShots || shotsFor !== state.testId) return [];
+  return Object.keys(state.stepShots.list || {}).map(Number).filter((i) => state.stepShots.list[i]).sort((a, b) => a - b);
+}
+
+/** Visualizador: um print por vez, com anterior/próximo (botões ou setas do teclado). */
+function showStepShots(start) {
+  const test = currentTest();
+  const list = shotIndexes();
+  let pos = Math.max(0, list.indexOf(start));
+  const paint = () => {
+    const i = list[pos];
+    const st = stepStatus(test, i);
+    dlg.innerHTML = `<div class="dlg-head">Passo ${i + 1} de ${test.steps.length}${st ? ` · ${statusBadge(st.status)}` : ''}</div>
+      <div class="viewer-desc">${esc(describeStep(test.steps[i]))}${st?.error ? `<div class="step-error">${esc(st.error)}</div>` : ''}</div>
+      <img class="shot-full" src="${shotOf(i)}" alt="Tela depois do passo ${i + 1}">
+      <div class="dlg-foot"><span class="viewer-count">${pos + 1} / ${list.length}</span><span class="spacer"></span>
+        <button class="btn" data-dlg="prev" ${pos ? '' : 'disabled'}>← Anterior</button>
+        <button class="btn" data-dlg="next" ${pos < list.length - 1 ? '' : 'disabled'}>Próximo →</button>
+        <button class="btn" data-dlg="cancel">Fechar</button></div>`;
+  };
+  const go = (d) => { pos = Math.min(list.length - 1, Math.max(0, pos + d)); paint(); };
+  dlg.onclick = (e) => {
+    const b = e.target.closest('[data-dlg]');
+    if (!b) return;
+    if (b.dataset.dlg === 'cancel') dlg.close();
+    else go(b.dataset.dlg === 'next' ? 1 : -1);
+  };
+  dlg.onkeydown = (e) => {
+    if (e.key === 'ArrowRight') go(1);
+    if (e.key === 'ArrowLeft') go(-1);
+  };
+  dlg.addEventListener('close', () => { dlg.onkeydown = null; }, { once: true });
+  paint();
+  dlg.showModal();
+}
+
 // ---------- compartilhar ----------
 
 async function shareTest(test) {
@@ -996,7 +1063,7 @@ async function shareTest(test) {
       } else if (kind === 'report') {
         const stamp = new Date(run.at).toISOString().slice(0, 16).replace(/[:T]/g, '-');
         const diag = run.error ? await diagFor(test, run).catch(() => null) : null;
-        download(`relatorio-${slug(test.name)}-${stamp}.html`, toReportHtml(test, run, run.status === 'failed' ? state.shot : null, diag), 'text/html');
+        download(`relatorio-${slug(test.name)}-${stamp}.html`, toReportHtml(test, run, run.status === 'failed' ? state.shot : null, diag, runShots(test, run)), 'text/html');
       } else if (kind === 'link') {
         b.disabled = true;
         const url = await reportLink(test, run);
@@ -1169,10 +1236,18 @@ const actions = {
         const diag = run?.error ? await diagFor(test, run).catch(() => null) : null;
         // Com o servidor do time, o comentário leva o link do relatório (com PDF) em vez do arquivo.
         const link = run && teamOn() ? await reportLink(test, run).catch(() => null) : null;
-        await comment(token, task.id, `${description}\nTempo lançado: ${fmtDuration(duration)}.${link ? `\nRelatório: ${link}` : ''}${run ? `\n\n${toSummaryText(test, run, diag)}` : ''}`);
+        const shots = run && state.settings.stepShots ? runShots(test, run) : null;
+        const prints = [];
+        for (const [i, data] of Object.entries(shots || {})) {
+          if (!data) continue;
+          await attach(token, task.id, stepShotName(Number(i)), await (await fetch(data)).blob());
+          prints.push(Number(i));
+        }
+        const header = [description, `Tempo lançado: ${fmtDuration(duration)}.`];
+        await comment(token, task.id, toClickupComment(test, run, { diag, header, link, prints }));
         if (run && !link) {
           const stamp = new Date(run.at).toISOString().slice(0, 16).replace(/[:T]/g, '-');
-          await attach(token, task.id, `relatorio-${slug(test.name)}-${stamp}.html`, toReportHtml(test, run, run.status === 'failed' ? state.shot : null, diag));
+          await attach(token, task.id, `relatorio-${slug(test.name)}-${stamp}.html`, toReportHtml(test, run, run.status === 'failed' ? state.shot : null, diag, runShots(test, run)));
         }
       }
       if (withStatus && state.settings.clickupDoneStatus) await setStatus(token, task.id, state.settings.clickupDoneStatus);
@@ -1239,6 +1314,9 @@ const actions = {
   shot() {
     showShot();
   },
+  'step-shot'(el) {
+    showStepShots(Number(el.dataset.index));
+  },
   async 'backup-now'() {
     const res = await send('backup:now');
     toast(`Backup salvo em Downloads/${res.filename}`);
@@ -1264,7 +1342,7 @@ const actions = {
     const run = el.dataset.which === 'failure' ? test.lastFailure : test.lastRun;
     const stamp = new Date(run.at).toISOString().slice(0, 16).replace(/[:T]/g, '-');
     const diag = run.error ? await diagFor(test, run).catch(() => null) : null;
-    download(`relatorio-${slug(test.name)}-${stamp}.html`, toReportHtml(test, run, run.status === 'failed' ? state.shot : null, diag), 'text/html');
+    download(`relatorio-${slug(test.name)}-${stamp}.html`, toReportHtml(test, run, run.status === 'failed' ? state.shot : null, diag, runShots(test, run)), 'text/html');
   },
   async 'report-link'(el) {
     const test = currentTest();

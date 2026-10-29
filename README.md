@@ -39,6 +39,10 @@ Para completar um teste existente, abra-o e clique em **Continuar gravando**: os
 
 Cada passo fica verde quando passa e vermelho quando falha, com a mensagem do erro. Na falha, a extensão guarda um print da tela, que aparece no topo do teste (clique para ampliar). O histórico guarda as últimas 15 execuções.
 
+## Print de cada passo
+
+Em Configurações, ligue **Print de cada passo** (vem desligado). A cada passo executado a extensão tira um print reduzido da tela; fica guardada só a última execução de cada teste. Cada passo mostra a miniatura, e **Ver passo a passo** (acima da lista de passos) abre os prints em sequência, com ← → (botões ou teclado). Os prints vão também no relatório HTML, no link do relatório e no ClickUp. Cada print deixa a execução cerca de meio segundo mais lenta por passo, porque o Chrome aceita no máximo 2 prints por segundo.
+
 ## Repetir várias vezes
 
 Abaixo dos botões do teste: **Repetir N vez(es)** e **intervalo** em segundos entre uma execução e outra (até 500 repetições). Cada repetição gera variáveis novas (outro `{{$email}}`, outro `{{$cpf}}`), então dá para criar vários cadastros seguidos. No fim aparece o placar ("8 de 10 execuções passaram"); se alguma falhou, a última falha fica guardada com print e erros, mesmo que as seguintes tenham passado. O botão **Parar** interrompe inclusive durante o intervalo.
@@ -72,7 +76,7 @@ Quando um teste alterna entre passar e falhar nas últimas 10 execuções, a lis
 
 ## Lançar horas no ClickUp
 
-Em Configurações > ClickUp, cole o seu token pessoal (ClickUp: avatar > Settings > Apps > API Token). As horas saem no seu nome. Dentro do teste, pesquise a tarefa pelo nome/ID ou cole o link/ID para vincular. O dropdown de status carrega as opções da lista da tarefa e salva a alteração no ClickUp. A duração vem do relógio da sessão de QA, que começa na primeira gravação ou execução depois do último lançamento, e pode ser editada. Opcional: comentar na tarefa com o resumo e o relatório HTML anexado, e mover para o status configurado quando o teste passou. Embaixo aparece o que já foi lançado na tarefa por todo mundo.
+Em Configurações > ClickUp, cole o seu token pessoal (ClickUp: avatar > Settings > Apps > API Token). As horas saem no seu nome. Dentro do teste, pesquise a tarefa pelo nome/ID ou cole o link/ID para vincular. O dropdown de status carrega as opções da lista da tarefa e salva a alteração no ClickUp. A duração vem do relógio da sessão de QA, que começa na primeira gravação ou execução depois do último lançamento, e pode ser editada. Opcional: comentar na tarefa com o resumo e o relatório HTML anexado, e mover para o status configurado quando o teste passou. O comentário sai formatado: resultado, onde falhou, diagnóstico, mensagens e a lista de passos com ✅/❌. Com **Print de cada passo** ligado, os prints da execução são anexados na tarefa (`passo-01.jpg`, `passo-02.jpg`…) e o comentário diz qual é de cada passo. Embaixo aparece o que já foi lançado na tarefa por todo mundo.
 
 ## Servidor do time (aprendizado federado e radar)
 
@@ -88,6 +92,7 @@ O painel do servidor (página inicial, protegida pela senha do admin) mostra os 
 - **Projetos**: no cartão Projetos, agrupe os sites de um cliente (ex.: MetLife = local + staging). Cada site fica em um projeto só.
 - **Filtro**: no topo do painel, escolha um projeto (ou "Sites sem projeto") e/ou um QA. Resumo, mapa de calor, linha do tempo e motivos passam a valer só para o recorte, e a escolha fica salva no navegador. Com filtro de QA, as quebras novas são as do projeto em que ele está entre os que falharam (uma quebra sempre envolve mais de um QA).
 - Os alertas e as contribuições pendentes mostram o nome de cada QA.
+- **Testes**: com **Enviar execuções para o painel do time** ligado na extensão (Configurações > Time, vem desligado), cada execução manda o nome do teste, os passos, o resultado e os prints. O painel mostra a última execução de cada teste por QA; clicar abre os passos com as miniaturas, e **Ver passo a passo** abre os prints em sequência (← → no teclado). Respeita o filtro de projeto e QA. Os e-mails gerados no teste não são enviados.
 
 ### Subir o servidor
 

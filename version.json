@@ -1,5 +1,5 @@
 {
-  "version": "1.5.1",
-  "notes": "Backup completo criptografado por senha para preservar testes, histórico, variáveis secretas e chaves ao reinstalar ou trocar de pasta. Também inclui busca de tarefas do ClickUp e seleção de status.",
+  "version": "1.6.0",
+  "notes": "Print de cada passo (Configurações), com miniaturas e visualizador passo a passo. Prints anexados no ClickUp com comentário formatado. Seu nome e envio opcional das execuções para a seção Testes do painel do time, que agora separa por projeto e por QA.",
   "download": "https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip"
 }
