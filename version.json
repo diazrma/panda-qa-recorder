@@ -1,5 +1,5 @@
 {
-  "version": "1.8.0",
-  "notes": "Botão \"Abrir meu painel\" em Configurações > Time: painel do servidor só com as lojas em que você testou. Inclui a 1.7.0: projeto criado sozinho pelo endereço do site.",
+  "version": "1.9.0",
+  "notes": "Entrar no time com um convite só (PANDATIME1.…), aviso quando a chave é trocada, seção Time no topo das configurações e ícone do painel do time na tela principal.",
   "download": "https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip"
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Panda QA Recorder",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Grave fluxos de teste no front (login, cadastro, checkout), mantenha a lista de passos e repita quando precisar.",
   "minimum_chrome_version": "116",
   "permissions": [

@@ -4,9 +4,10 @@
  */
 import { chromium } from 'playwright';
 import path from 'node:path';
+import { chromePath } from '../tests/chrome.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
-const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
+const browser = await chromium.launch({ executablePath: chromePath() });
 const page = await browser.newPage();
 await page.goto('file://' + path.join(root, 'docs/guia/guia.html'), { waitUntil: 'load' });
 const out = path.join(root, 'docs/Panda-QA-Recorder-Guia.pdf');

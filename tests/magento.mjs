@@ -10,6 +10,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { chromePath } from './chrome.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const outDir = path.join(root, 'tests/out/magento');
@@ -24,7 +25,7 @@ const EMAIL = `rodrigo.test+${Date.now()}@example.com`;
 
 const context = await chromium.launchPersistentContext('', {
   channel: 'chromium',
-  executablePath: process.env.CHROME_PATH || undefined,
+  executablePath: chromePath(),
   headless: true,
   ignoreHTTPSErrors: true,
   viewport: { width: 1366, height: 860 },

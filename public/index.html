@@ -133,6 +133,7 @@
     <input type="password" id="senha" placeholder="Senha do admin" autocomplete="current-password" autofocus>
     <div class="err" id="login-err"></div>
     <button class="btn primary" type="submit">Entrar</button>
+    <p style="margin:0;color:var(--muted);font-size:12.5px">É QA? Você não precisa de senha: abra o seu painel pelo ícone do time no topo da extensão.</p>
   </form>
 </div>
 <div id="app" class="wrap" hidden></div>
@@ -299,6 +300,15 @@ function verPrints(id, inicio) {
   pintar();
   dlg.showModal();
 }
+// Mesmo formato de lib/invite.js: servidor + chave num código só, para o QA colar na extensão.
+const convite = (chave) => 'PANDATIME1.' + btoa(unescape(encodeURIComponent(JSON.stringify({ s: location.origin, k: chave })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const DOWNLOAD = 'https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip';
+const mensagemConvite = (chave) => `Oi! Para entrar no time do Panda QA:
+1. Baixe a extensão: ${DOWNLOAD}
+   Descompacte numa pasta fixa, abra chrome://extensions, ligue o Modo do desenvolvedor e clique em Carregar sem compactação.
+2. No painel da extensão, abra Configurações (engrenagem) > Time, cole o convite abaixo e clique em Entrar no time:
+${convite(chave)}
+3. Preencha o seu nome no mesmo lugar. O seu painel abre pelo ícone do time no topo da extensão.`;
 const nomeSite = (alias) => (dados.config.sites || {})[alias] || alias;
 const nomeProjeto = (id) => (dados.config.projetos || {})[id]?.nome || '';
 
@@ -386,6 +396,7 @@ function render() {
   $('#app').innerHTML = `
   <header>
     <h1><span class="logo">P</span>Panda QA · ${qa ? `Minhas lojas <small>${d.lojas} loja(s) ·` : 'Admin <small>'} atualizado ${new Date().toLocaleTimeString('pt-BR')}</small></h1>
+    ${qa ? '' : '<button class="btn primary" data-a="ir-convidar">Convidar QA</button>'}
     <button class="btn" data-a="tema" title="Trocar tema">${document.documentElement.dataset.theme === 'dark' ? '☀ Claro' : '☾ Escuro'}</button>
     <button class="btn" data-a="recarregar">Atualizar</button>
     <button class="btn" data-a="sair">Sair</button>
@@ -452,19 +463,25 @@ function render() {
 
   <section>
     <div class="title">Configuração</div>
-    <div class="card" style="margin-bottom:14px"><h2>Chave do time<span class="sub">${d.chave.origem === 'admin' ? `gerada aqui em ${hora(d.chave.at)}` : 'a da Vercel (EQUIPE_CHAVE)'}</span></h2>
-      <p style="margin:0 0 10px;color:var(--muted);font-size:13px">É a chave que cada QA ou dev cola em Configurações > Time na extensão, e que abre os links de relatório. Gerar uma nova derruba a antiga na hora: as extensões e os navegadores com acesso aos relatórios passam a pedir a nova.</p>
+    <div class="card" id="convidar" style="margin-bottom:14px"><h2>Convidar QA<span class="sub">chave ${d.chave.origem === 'admin' ? `gerada aqui em ${hora(d.chave.at)}` : 'da Vercel (EQUIPE_CHAVE)'}</span></h2>
+      <ol style="margin:0 0 10px;padding-left:18px;color:var(--muted);font-size:13px">
+        <li>Copie a mensagem e mande para o QA (chat ou e-mail).</li>
+        <li>Ele instala a extensão pelo link, abre Configurações > Time, cola o convite e clica em <b>Entrar no time</b>.</li>
+        <li>Pronto: radar e envio das execuções já ligam sozinhos, e ele abre o próprio painel pelo ícone do time na extensão.</li>
+      </ol>
       <div class="row-actions">
-        <code id="chave-val" style="font-size:14px;padding:6px 10px;border-radius:7px;background:var(--surface-2);letter-spacing:.02em">${chaveVisivel ? esc(chaveVisivel) : '••••••••••••••••••••••••••••'}</code>
+        <code id="convite-val" style="font-size:13px;padding:6px 10px;border-radius:7px;background:var(--surface-2);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${chaveVisivel ? esc(convite(chaveVisivel)) : 'PANDATIME1.••••••••••••••••••••'}</code>
+        <button class="btn small primary" data-a="convite-mensagem">Copiar mensagem para o QA</button>
+        <button class="btn small" data-a="convite-copiar">Copiar só o convite</button>
         <button class="btn small" data-a="chave-ver">${chaveVisivel ? 'Esconder' : 'Mostrar'}</button>
-        <button class="btn small" data-a="chave-copiar">Copiar</button>
-        <button class="btn small" data-a="chave-trocar" style="margin-left:auto;color:var(--fail)">Gerar nova chave</button>
       </div>
+      <p style="margin:12px 0 8px;color:var(--muted);font-size:13px">Saiu alguém do time ou a chave vazou? Gere uma nova: a antiga para na hora, cada extensão mostra o aviso "chave recusada" e o QA só precisa colar o convite novo.</p>
+      <button class="btn small" data-a="chave-trocar" style="color:var(--fail)">Gerar nova chave</button>
     </div>
     ${cartaoProjetos()}
     <div class="grid two">
       <div class="card"><h2>Sites</h2>
-        <p style="margin:0 0 10px;color:var(--muted);font-size:13px">O servidor só conhece o apelido de cada loja. Digite o endereço aqui: o apelido é calculado no seu navegador e só o nome que você der é salvo.</p>
+        <p style="margin:0 0 10px;color:var(--muted);font-size:13px">Os sites aparecem sozinhos com o domínio na primeira execução. Aqui você troca o nome mostrado (ex.: Mueller · staging) ou cadastra um site antes de alguém testar nele.</p>
         <form class="form" id="site-form"><label>Endereço da loja<input id="site-url" placeholder="staging.mueller.com.br" required></label><label>Nome<input id="site-nome" placeholder="Mueller · staging" required></label><button class="btn primary" type="submit">Salvar</button></form>
         ${Object.keys(nomes).length ? `<table style="margin-top:10px"><tbody>${Object.entries(nomes).map(([k, v]) => `<tr><td>${esc(v)}</td><td class="mono">${esc(k)}</td><td class="num"><button class="btn small" data-a="site-del" data-alias="${esc(k)}">Remover</button></td></tr>`).join('')}</tbody></table>` : ''}
       </div>
@@ -555,6 +572,7 @@ document.addEventListener('click', async (e) => {
       return;
     }
     if (a === 'ver-print') return verPrints(b.dataset.id, Number(b.dataset.i));
+    if (a === 'ir-convidar') return $('#convidar').scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (a === 'limpar-filtro') {
       filtro = { projeto: '', qa: '' };
       try { localStorage.removeItem(qa ? 'pqa-filtro-qa' : 'pqa-filtro'); } catch {}
@@ -588,15 +606,16 @@ document.addEventListener('click', async (e) => {
       chaveVisivel = chaveVisivel ? '' : (await api('chave')).chave;
       return render();
     }
-    if (a === 'chave-copiar') {
-      await navigator.clipboard.writeText((await api('chave')).chave);
+    if (a === 'convite-copiar' || a === 'convite-mensagem') {
+      const { chave } = await api('chave');
+      await navigator.clipboard.writeText(a === 'convite-copiar' ? convite(chave) : mensagemConvite(chave));
       b.disabled = false;
-      return toast('Chave copiada.');
+      return toast(a === 'convite-copiar' ? 'Convite copiado.' : 'Mensagem copiada: é só colar para o QA.');
     }
     if (a === 'chave-trocar') {
-      if (!confirm('Gerar uma chave nova? A atual para de funcionar na hora: cada QA vai precisar colar a nova na extensão.')) { b.disabled = false; return; }
+      if (!confirm('Gerar uma chave nova? A atual para de funcionar na hora: cada QA vai precisar colar o convite novo na extensão.')) { b.disabled = false; return; }
       chaveVisivel = (await api('trocarChave')).chave;
-      toast('Chave nova gerada. Passe para o time.');
+      toast('Chave nova gerada. Copie a mensagem do convite e mande para o time.');
     }
     await carregar();
   } catch (err) {

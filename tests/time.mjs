@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { chromePath } from './chrome.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const siteDir = path.join(root, 'tests/site');
@@ -39,7 +40,7 @@ const base = `http://127.0.0.1:${site.address().port}`;
 
 const context = await chromium.launchPersistentContext('', {
   channel: 'chromium',
-  executablePath: process.env.CHROME_PATH || undefined,
+  executablePath: chromePath(),
   headless: true,
   viewport: { width: 1280, height: 800 },
   args: [`--disable-extensions-except=${root}`, `--load-extension=${root}`],
@@ -231,12 +232,44 @@ try {
   });
 
   console.log('Servidor do time');
-  await sw.evaluate(async (url) => {
-    const { settings = {} } = await chrome.storage.local.get('settings');
-    await chrome.storage.local.set({ settings: { ...settings, teamServer: url, teamKey: 'chave-do-time-e2e', teamRuns: true } });
-  }, teamUrl);
+  // Admin no navegador: entra com a senha e pega o convite do cartão "Convidar QA".
+  const adm = await context.newPage();
+  const admErros = [];
+  adm.on('pageerror', (e) => admErros.push(e.message));
+  await adm.goto(teamUrl + '/');
+  await adm.fill('#senha', process.env.ADMIN_SENHA);
+  await adm.click('#login-form button[type=submit]');
+  await adm.waitForSelector('#convidar');
+  await adm.click('[data-a="chave-ver"]');
+  await adm.waitForFunction(() => !document.querySelector('#convite-val').textContent.includes('•'));
+  const convite = (await adm.textContent('#convite-val')).trim();
+  await adm.locator('#convidar').screenshot({ path: path.join(outDir, 'admin-convidar.png') });
+  await check('admin mostra o convite (servidor + chave num código só) sem erros de JS', async () => {
+    assert.match(convite, /^PANDATIME1\.[\w-]+$/);
+    const { decodeInvite } = await import('../lib/invite.js');
+    assert.deepEqual(decodeInvite(`Oi! cola isso: ${convite} valeu`), { server: teamUrl, key: 'chave-do-time-e2e' });
+    assert.deepEqual(admErros, []);
+  });
+
   await panel.click('[data-action="back"]');
   await panel.click('[data-view="settings"]');
+  await check('fora do time, Configurações > Time pede só o convite', async () => {
+    assert.ok(await panel.isVisible('#team-invite'));
+    assert.equal(await panel.isVisible('input[data-setting="teamKey"]'), false, 'servidor e chave ficam no Avançado');
+  });
+  await panel.fill('#team-invite', 'PANDATIME1.lixo');
+  await panel.click('[data-action="team-join"]');
+  await panel.waitForSelector('.toast:has-text("Convite")');
+  await panel.fill('#team-invite', `Oi! Para entrar no time: ${convite}`);
+  await panel.click('[data-action="team-join"]');
+  await panel.waitForSelector('text=Conectado a');
+  await check('convite colado entra no time e já liga radar e envio das execuções', async () => {
+    const st = await sw.evaluate(async () => (await chrome.storage.local.get('settings')).settings);
+    assert.equal(st.teamServer, teamUrl);
+    assert.equal(st.teamKey, 'chave-do-time-e2e');
+    assert.equal(st.teamRuns, true);
+    assert.equal(st.teamRadar, true);
+  });
   await panel.fill('input[data-setting="teamName"]', 'Rodrigo QA');
   await panel.press('input[data-setting="teamName"]', 'Tab');
   await panel.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings?.teamName === 'Rodrigo QA');
@@ -338,6 +371,26 @@ try {
     await aba.close();
   });
 
+  await check('admin troca a chave: a extensão avisa "chave recusada" e o convite novo resolve', async () => {
+    adm.once('dialog', (d) => d.accept());
+    await adm.click('[data-a="chave-trocar"]');
+    await adm.waitForFunction((velho) => { const t = document.querySelector('#convite-val').textContent.trim(); return t.startsWith('PANDATIME1.') && !t.includes('•') && t !== velho; }, convite);
+    const novo = (await adm.textContent('#convite-val')).trim();
+    // Próxima conversa da extensão com o servidor (aqui, a checagem do modelo) já leva o 401.
+    await panel.evaluate(() => import('../lib/team.js').then((m) => m.pullModel(globalThis.tf)).catch(() => {}));
+    if (await panel.isVisible('[data-action="back"]')) await panel.click('[data-action="back"]');
+    await panel.waitForSelector('.banner.error:has-text("recusou a chave")', { timeout: 15000 });
+    await panel.screenshot({ path: path.join(outDir, 'chave-recusada.png') });
+    await panel.click('[data-action="team-invite-open"]');
+    await panel.fill('#team-invite', novo);
+    await panel.click('[data-action="team-join"]');
+    await panel.waitForSelector('text=Conectado a');
+    await panel.click('[data-action="back"]');
+    assert.equal(await panel.isVisible('.banner.error'), false);
+    process.env.EQUIPE_CHAVE_NOVA = (await import('../lib/invite.js')).decodeInvite(novo).key;
+    await adm.close();
+  });
+
   console.log('Relatório por link');
   const link = await panel.evaluate(async () => {
     const { uploadReport } = await import('../lib/team.js');
@@ -350,7 +403,7 @@ try {
   const semChave = await fetch(link.url);
   const semChaveHtml = await semChave.text();
   const errada = await fetch(link.url, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'chave=errada-errada' });
-  const certa = await fetch(link.url, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'chave=chave-do-time-e2e' });
+  const certa = await fetch(link.url, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `chave=${process.env.EQUIPE_CHAVE_NOVA}` });
   const cookie = (certa.headers.get('set-cookie') || '').split(';')[0];
   await check('sem a chave do time o link pede a chave e não mostra nada do relatório', async () => {
     assert.equal(semChave.status, 401);
@@ -359,7 +412,7 @@ try {
     assert.equal(errada.status, 401);
     assert.equal(certa.status, 303);
     assert.match(certa.headers.get('set-cookie'), /HttpOnly/);
-    assert.doesNotMatch(cookie, /chave-do-time-e2e/);
+    assert.ok(!cookie.includes(process.env.EQUIPE_CHAVE_NOVA));
   });
   const relRes = await fetch(link.url, { headers: { cookie } });
   const relHtml = await relRes.text();
@@ -382,7 +435,7 @@ try {
   relPage.on('console', (m) => m.type() === 'error' && relErrors.push(m.text()));
   await relPage.goto(link.url);
   await relPage.screenshot({ path: path.join(outDir, 'relatorio-chave.png') });
-  await relPage.fill('input[name=chave]', 'chave-do-time-e2e');
+  await relPage.fill('input[name=chave]', process.env.EQUIPE_CHAVE_NOVA);
   await relPage.click('button[type=submit]');
   await relPage.waitForSelector('#pqa-pdf');
   relErrors.length = 0;
@@ -417,6 +470,7 @@ try {
   const rodada = await admin('rodada');
   await check('rodada fecha e publica a v2; a extensão baixa a nova', async () => {
     assert.equal(rodada.publicado, 2, JSON.stringify(rodada));
+    if (await panel.isVisible('[data-view="settings"]')) await panel.click('[data-view="settings"]');
     await panel.click('[data-action="team-sync"]');
     await panel.waitForFunction(() => /Modelo do time v2/.test(document.body.innerText), null, { timeout: 30000 });
   });

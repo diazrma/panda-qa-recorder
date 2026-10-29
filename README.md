@@ -80,14 +80,24 @@ Em Configurações > ClickUp, cole o seu token pessoal (ClickUp: avatar > Settin
 
 ## Servidor do time (aprendizado federado e radar)
 
-Em Configurações > Time, informe o endereço do servidor, a chave do time e o seu nome (opcional; sem ele você aparece no painel como QA anônimo).
+### Entrar no time (QA)
+
+1. Peça ao admin a mensagem de convite (cartão **Convidar QA** no painel do servidor).
+2. Na extensão, abra Configurações (engrenagem). A seção **Time** fica no topo: cole o convite (`PANDATIME1.…`, pode colar a mensagem inteira) e clique em **Entrar no time**.
+3. Preencha o seu nome. Sem nome você aparece no painel como QA anônimo.
+
+O convite já traz o endereço do servidor e a chave, confere a chave antes de salvar e liga o **Radar das lojas** e o **Enviar execuções para o painel do time**. Servidor e chave ficam em **Avançado**, só para ajuste manual. Se o admin trocar a chave, a tela principal da extensão mostra **O servidor do time recusou a chave**, com o botão **Colar convite**: é só colar o convite novo.
+
+O ícone do time (👥) no topo da extensão abre o seu painel (veja **Painel do QA**).
+
+### O que vai para o servidor
 
 - **Aprender com o time**: a extensão baixa o modelo do time e o ajusta com as suas correções. Só a diferença de pesos (números) vai para o servidor, nunca texto, URL ou print. O servidor junta as contribuições numa rodada, descarta as que pioram o modelo nos casos de referência, faz a média e só publica a versão nova se ela não errar mais que a anterior. As extensões baixam a versão nova em até 15 minutos.
 - **Radar das lojas**: a cada execução vai o apelido do site (hash do endereço) e o domínio do site (para nomear o site e montar o projeto), o trecho da URL com só as partes conhecidas do Magento (`/checkout#payment`, produto vira `*`), se passou ou falhou, o tempo, os números da falha e o nome do QA, quando preenchido. O servidor classifica a falha e aponta quebra nova: um trecho que passava e começou a falhar para mais de um QA na janela recente.
 
 - **Link do relatório**: em Compartilhar > Link do relatório (ou **Copiar link do relatório** na falha), o relatório vai para o servidor e vira um link individual, `https://<servidor>/relatorio/<número>`, com botão **Baixar PDF**. O link só abre com a chave do time: na primeira vez a página pede a chave e o navegador fica liberado por 90 dias. Gerar uma chave nova no admin derruba todos os acessos. Com o servidor configurado, o comentário do ClickUp leva esse link em vez do HTML anexado.
 
-O painel do servidor (página inicial, protegida pela senha do admin) mostra os alertas, o mapa de calor por site e trecho, as rodadas do aprendizado, permite voltar o modelo para uma versão anterior e abrir o bug de um alerta no ClickUp. Em **Limpeza do time**, o botão **Resetar aprendizado e sites** apaga o aprendizado federado e os dados históricos do radar, remove os nomes dos sites e publica novamente o modelo base. Isso não apaga testes locais das extensões. O bug automático vem desligado e só cria tarefa quando é ligado no painel.
+O painel do servidor (página inicial, protegida pela senha do admin) tem o cartão **Convidar QA**: **Copiar mensagem para o QA** copia o texto pronto com o link da extensão, os passos e o convite; **Gerar nova chave** derruba a antiga na hora (use quando alguém sair do time ou a chave vazar). O painel também mostra os alertas, o mapa de calor por site e trecho, as rodadas do aprendizado, permite voltar o modelo para uma versão anterior e abrir o bug de um alerta no ClickUp. Em **Limpeza do time**, o botão **Resetar aprendizado e sites** apaga o aprendizado federado e os dados históricos do radar, remove os nomes dos sites e publica novamente o modelo base. Isso não apaga testes locais das extensões. O bug automático vem desligado e só cria tarefa quando é ligado no painel.
 
 - **Projetos**: no cartão Projetos, agrupe os sites de um cliente (ex.: MetLife = local + staging). Cada site fica em um projeto só. Site novo já chega com o nome do endereço (`qa.metlife.cl`) e entra sozinho no projeto do cliente, tirado do domínio sem o ambiente (`qa.metlife.cl` e `metlife.test` viram **Metlife**); se já existe um projeto com esse nome, ou cujo nome é o começo do domínio, ele entra nesse. Endereços sem cliente reconhecível (IP, `localhost`, URL de nuvem com hash) só ganham o nome. Cada site é arrumado uma vez só: o que o admin mudar depois não é desfeito.
 - **Filtro**: no topo do painel, escolha um projeto (ou "Sites sem projeto") e/ou um QA. Resumo, mapa de calor, linha do tempo e motivos passam a valer só para o recorte, e a escolha fica salva no navegador. Com filtro de QA, as quebras novas são as do projeto em que ele está entre os que falharam (uma quebra sempre envolve mais de um QA).
@@ -96,7 +106,7 @@ O painel do servidor (página inicial, protegida pela senha do admin) mostra os 
 
 ### Painel do QA
 
-Em Configurações > Time, **Abrir meu painel** abre o painel do servidor só com as lojas em que você testou: os sites para onde a sua extensão mandou sinal do radar ou execução, mais os outros sites dos mesmos projetos (testou no staging da MetLife, vê também o local e a produção). Mostra os testes do time nessas lojas, com passos e prints, as quebras novas, o mapa de calor e os motivos de falha, com filtro por projeto e QA. Não mostra nada de admin (aprendizado, chave, projetos, sites, limpeza) e não abre bug nem remove execução. Entra com a chave do time, que vai no link só na parte depois do `#` (não chega ao servidor nem fica na barra de endereço) e vale só para aquela aba. Loja nova aparece depois da primeira execução, em até 2 minutos.
+O ícone do time no topo da extensão (ou **Abrir meu painel** em Configurações > Time) abre o painel do servidor só com as lojas em que você testou: os sites para onde a sua extensão mandou sinal do radar ou execução, mais os outros sites dos mesmos projetos (testou no staging da MetLife, vê também o local e a produção). Mostra os testes do time nessas lojas, com passos e prints, as quebras novas, o mapa de calor e os motivos de falha, com filtro por projeto e QA. Não mostra nada de admin (aprendizado, chave, projetos, sites, limpeza) e não abre bug nem remove execução. Entra com a chave do time, que vai no link só na parte depois do `#` (não chega ao servidor nem fica na barra de endereço) e vale só para aquela aba. Loja nova aparece depois da primeira execução, em até 2 minutos.
 
 ### Subir o servidor
 

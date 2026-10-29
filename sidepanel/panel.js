@@ -12,7 +12,7 @@ import { BUILTINS } from '../lib/vars.js';
 import { toReportHtml, toSummaryText, toClickupComment, stepShotName, LOG_KIND } from '../lib/report.js';
 import { buildFullBackup, isBackup, isFullBackup, restoreBackup, restoreFullBackup } from '../lib/backup.js';
 import { parseTaskRef, getTask, searchTasks, logTime, comment, attach, setStatus, taskTimes, fmtDuration } from '../lib/clickup.js';
-import { syncTeam, pushContribution, teamConfig, uploadReport, clientId } from '../lib/team.js';
+import { syncTeam, pushContribution, teamConfig, uploadReport, joinTeam, qaPanelUrl } from '../lib/team.js';
 
 const ICON = {
   play: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.4-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z"/></svg>',
@@ -26,6 +26,7 @@ const ICON = {
   eye: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>',
   eyeOff: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 2l12 12M6.6 6.6a2 2 0 0 0 2.8 2.8M4.2 4.7C2.5 5.9 1.5 8 1.5 8s2.5 4.5 6.5 4.5c1.3 0 2.4-.4 3.4-1M7 3.6c.3 0 .7-.1 1-.1 4 0 6.5 4.5 6.5 4.5s-.5 1-1.5 2"/></svg>',
   grip: '<svg viewBox="0 0 16 16" fill="currentColor" style="width:12px"><circle cx="5" cy="4" r="1.1"/><circle cx="11" cy="4" r="1.1"/><circle cx="5" cy="8" r="1.1"/><circle cx="11" cy="8" r="1.1"/><circle cx="5" cy="12" r="1.1"/><circle cx="11" cy="12" r="1.1"/></svg>',
+  team: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="6" cy="5.5" r="2.2"/><path d="M2 13.5c.4-2.3 2-3.6 4-3.6s3.6 1.3 4 3.6"/><circle cx="11.3" cy="6.2" r="1.7"/><path d="M11.6 9.8c1.4.2 2.3 1.3 2.5 3"/></svg>',
   gear: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>',
   braces: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 2.5C4 2.5 4 3.5 4 5s-.5 3-1.5 3C3.5 8 4 9.5 4 11s0 2.5 1.5 2.5M10.5 2.5C12 2.5 12 3.5 12 5s.5 3 1.5 3c-1 0-1.5 1.5-1.5 3s0 2.5-1.5 2.5"/></svg>',
   check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>',
@@ -283,6 +284,7 @@ function renderList() {
       <div class="brand"><img src="../icons/icon32.png" alt="">Panda QA Recorder</div>
       ${state.update?.available ? `<button class="btn small update-pill" data-action="update-show">Nova versão ${esc(state.update.latest)}</button>` : ''}
       <div class="top-actions">
+        ${teamOn() ? `<button class="icon" data-action="team-panel" title="Meu painel do time: as lojas em que você testou">${ICON.team}</button>` : ''}
         <button class="icon" data-action="view" data-view="vars" title="Variáveis">${ICON.braces}</button>
         <button class="icon" data-action="view" data-view="settings" title="Configurações">${ICON.gear}</button>
         <button class="icon" data-action="menu-list" title="Importar / exportar">${ICON.more}</button>
@@ -294,6 +296,8 @@ function renderList() {
         ? `<button class="btn" data-action="run-stop">${ICON.stop}Parar execução</button>`
         : `<button class="btn" data-action="run-all" ${!inSite.length || isBusy() ? 'disabled' : ''}>${ICON.play}Executar todos${state.site ? ` (${inSite.length})` : ''}</button>`}
     </div>
+    ${state.team.check?.denied && teamOn() ? `<div class="banner error"><div class="banner-text"><b>O servidor do time recusou a chave.</b> O admin trocou a chave: peça o convite novo e cole em Configurações > Time. Enquanto isso, as execuções não chegam ao painel.</div>
+      <div class="banner-actions"><button class="btn small" data-action="team-invite-open">Colar convite</button></div></div>` : ''}
     ${renderSuiteBanner()}
     ${state.tests.length || Object.keys(state.sites).length ? renderSitePicker() : ''}
     ${state.tests.length ? `<input id="filter" class="search" placeholder="Buscar teste…" value="${esc(state.filter)}">` : ''}
@@ -700,6 +704,31 @@ function renderSettings() {
       <div class="brand">Configurações</div>
     </header>
     <div class="pane settings">
+      <div class="section-title" style="padding:0" id="team-section">Time</div>
+      ${teamOn() && !state.team.check?.denied && !state.inviteOpen
+        ? `<div class="banner-text">Conectado a <b>${esc(s.teamServer.replace(/^https?:\/\//, ''))}</b>.<br>${teamStatus()}</div>
+          <div class="banner-actions" style="margin-top:0"><button class="btn small primary" data-action="team-panel">${ICON.team}Abrir meu painel</button><button class="btn small" data-action="team-sync">Sincronizar agora</button><button class="btn small ghost" data-action="team-invite-open">Colar convite novo</button></div>`
+        : `<label>Convite do time
+            <textarea id="team-invite" rows="3" placeholder="PANDATIME1.…" spellcheck="false">${esc(state.inviteText || '')}</textarea>
+            <small>Peça ao admin do painel (cartão "Convidar QA"). Pode colar a mensagem inteira.${state.team.check?.denied ? ' <b>A chave atual foi recusada: cole o convite novo.</b>' : ''}</small></label>
+          <div class="banner-actions" style="margin-top:0"><button class="btn small primary" data-action="team-join">Entrar no time</button>${teamOn() ? '<button class="btn small ghost" data-action="team-invite-close">Cancelar</button>' : ''}</div>`}
+      <label>Seu nome
+        <input type="text" data-setting="teamName" value="${esc(s.teamName)}" maxlength="40" placeholder="ex.: Ana Souza">
+        <small>Aparece no painel do time junto com as suas execuções. Vazio: você aparece como QA anônimo.</small></label>
+      <label class="check"><input type="checkbox" data-setting="teamRuns" ${s.teamRuns ? 'checked' : ''}>
+        <span>Enviar execuções para o painel do time<br><small>A cada execução manda o nome do teste, os passos, o resultado e os prints (se ligados), para você e o time verem no painel. Fica só a última execução de cada teste.</small></span></label>
+      <label class="check"><input type="checkbox" data-setting="teamRadar" ${s.teamRadar !== false ? 'checked' : ''}>
+        <span>Radar das lojas<br><small>A cada execução manda o domínio do site (o painel cria o projeto sozinho), o trecho da URL (ex.: /checkout), se passou ou falhou, o tempo e os números da falha.</small></span></label>
+      <label class="check"><input type="checkbox" data-setting="teamLearn" ${s.teamLearn !== false ? 'checked' : ''}>
+        <span>Aprender com o time<br><small>Baixa o diagnóstico treinado pelo time e manda só a diferença de pesos das suas correções. Nenhum texto, URL ou print.</small></span></label>
+      <details class="advanced"><summary>Avançado: servidor e chave</summary>
+        <label>Servidor do time
+          <input type="url" data-setting="teamServer" value="${esc(s.teamServer)}" placeholder="https://panda-qa.vercel.app"></label>
+        <label>Chave do time
+          <input type="password" data-setting="teamKey" value="${esc(s.teamKey)}" autocomplete="off">
+          <small>Preenchidos pelo convite. Não vão no backup simples nem no export.</small></label>
+      </details>
+      <div class="section-title" style="padding:8px 0 0">Execução</div>
       <label>Tempo limite por passo (ms)
         <input type="number" id="set-timeout" data-setting="timeout" min="1000" step="500" value="${s.timeout}">
         <small>Quanto esperar um elemento aparecer antes de falhar.</small></label>
@@ -724,23 +753,6 @@ function renderSettings() {
       <label class="check"><input type="checkbox" data-setting="autoHeal" ${s.autoHeal !== false ? 'checked' : ''}>
         <span>Auto-correção de seletores<br><small>Se o elemento gravado não for encontrado, procura o mais parecido (mesmo texto, rótulo, id ou name) e segue. O passo fica marcado para você aplicar ou não a correção.</small></span></label>
       <div class="banner-actions" style="margin-top:0"><button class="btn small ghost" data-action="ai-reset">${ICON.trash}Apagar aprendizado da IA</button></div>
-      <div class="section-title" style="padding:8px 0 0">Time (aprendizado federado e radar)</div>
-      <label>Servidor do time
-        <input type="url" data-setting="teamServer" value="${esc(s.teamServer)}" placeholder="https://panda-qa.vercel.app"></label>
-      <label>Chave do time
-        <input type="password" data-setting="teamKey" value="${esc(s.teamKey)}" autocomplete="off">
-        <small>Quem administra o servidor passa essa chave. Ela não vai no backup nem no export.</small></label>
-      <label>Seu nome
-        <input type="text" data-setting="teamName" value="${esc(s.teamName)}" maxlength="40" placeholder="ex.: Ana Souza">
-        <small>Aparece no painel do time junto com as suas execuções, para separar por QA. Vazio: você aparece como QA anônimo.</small></label>
-      <label class="check"><input type="checkbox" data-setting="teamLearn" ${s.teamLearn !== false ? 'checked' : ''}>
-        <span>Aprender com o time<br><small>Baixa o modelo do time e manda só a diferença de pesos que suas correções geraram. Nenhum texto, URL ou print sai do navegador.</small></span></label>
-      <label class="check"><input type="checkbox" data-setting="teamRadar" ${s.teamRadar !== false ? 'checked' : ''}>
-        <span>Radar das lojas<br><small>A cada execução manda o endereço do site (só o domínio, para o painel criar o projeto sozinho), o trecho da URL (ex.: /checkout), se passou ou falhou, o tempo, os números da falha e o seu nome, se preenchido.</small></span></label>
-      <label class="check"><input type="checkbox" data-setting="teamRuns" ${s.teamRuns ? 'checked' : ''}>
-        <span>Enviar execuções para o painel do time<br><small>A cada execução manda o nome do teste, os passos, o resultado e os prints (se ligados) para a seção Testes do painel, protegida pela chave do time. Fica só a última execução de cada teste.</small></span></label>
-      <div class="banner-text">${teamStatus()}</div>
-      <div class="banner-actions" style="margin-top:0"><button class="btn small" data-action="team-sync" ${s.teamServer && s.teamKey ? '' : 'disabled'}>Sincronizar agora</button><button class="btn small ghost" data-action="team-panel" title="Painel do time só com as lojas em que você testou" ${s.teamServer && s.teamKey ? '' : 'disabled'}>Abrir meu painel</button></div>
       <div class="section-title" style="padding:8px 0 0">ClickUp</div>
       <label>Token pessoal do ClickUp
         <input type="password" data-setting="clickupToken" value="${esc(s.clickupToken)}" placeholder="pk_..." autocomplete="off">
@@ -768,13 +780,13 @@ function renderSettings() {
 
 function teamStatus() {
   const { model, check, sent } = state.team;
-  if (!state.settings.teamServer || !state.settings.teamKey) return 'Desligado: preencha o servidor e a chave do time.';
+  if (!teamOn()) return 'Fora do time: cole o convite do admin.';
   const parts = [model
     ? `Modelo do time <b>v${model.versao}</b>${model.acuracia != null ? ` (acerta ${Math.round(model.acuracia * 100)}% nos casos de referência)` : ''}`
     : 'Ainda sem o modelo do time'];
   if (sent?.total) parts.push(`${sent.total} contribuição(ões) enviada(s)`);
   if (check?.at) parts.push(`sincronizado ${ago(check.at)}`);
-  return parts.join(' · ') + (check?.error ? `<br>Erro: ${esc(check.error)}` : '');
+  return parts.join(' · ') + (check?.error && !check.denied ? `<br>Erro: ${esc(check.error)}` : '');
 }
 
 // ---------- menus ----------
@@ -1284,10 +1296,32 @@ const actions = {
     toast('Sincronizado com o servidor do time.');
   },
   async 'team-panel'() {
-    const cfg = await teamConfig();
-    if (!cfg.on) return toast('Preencha o servidor e a chave do time.');
-    // Chave e id vão no fragmento (#), que o navegador não manda ao servidor nem guarda no log de acesso.
-    chrome.tabs.create({ url: `${cfg.server}/#qa=${encodeURIComponent(await clientId())}&k=${encodeURIComponent(cfg.key)}` });
+    chrome.tabs.create({ url: await qaPanelUrl() });
+  },
+  async 'team-join'(el) {
+    const text = document.getElementById('team-invite')?.value || '';
+    el.disabled = true;
+    try {
+      const { server } = await joinTeam(text);
+      state.inviteOpen = false;
+      state.inviteText = '';
+      await send('radar:flush').catch(() => {});
+      syncTeam(globalThis.tf).then((changed) => { if (changed) aiCache.clear(); }).catch(() => {});
+      toast(`Pronto: você está no time (${server.replace(/^https?:\/\//, '')}).`);
+    } finally {
+      el.disabled = false;
+    }
+  },
+  'team-invite-open'() {
+    state.inviteOpen = true;
+    state.view = 'settings';
+    render();
+    document.getElementById('team-section')?.scrollIntoView({ block: 'start' });
+    document.getElementById('team-invite')?.focus();
+  },
+  'team-invite-close'() {
+    state.inviteOpen = false;
+    render();
   },
   async 'run-stop'() {
     await send('run:stop');
@@ -1498,6 +1532,8 @@ app.addEventListener('click', (e) => {
 });
 
 app.addEventListener('input', (e) => {
+  // Guarda o convite digitado: a tela redesenha quando o storage muda e apagaria o campo.
+  if (e.target.id === 'team-invite') state.inviteText = e.target.value;
   if (e.target.id === 'filter') {
     state.filter = e.target.value;
     render();

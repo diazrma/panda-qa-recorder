@@ -188,6 +188,10 @@ svg { width: 16px; height: 16px; flex: none; }
 .banner.passed { border-color: color-mix(in srgb, var(--ok) 35%, transparent); background: var(--ok-soft); }
 .banner.failed { border-color: color-mix(in srgb, var(--fail) 35%, transparent); background: var(--fail-soft); }
 .banner.stopped { background: var(--warn-soft); }
+.banner.error { border-color: color-mix(in srgb, var(--fail) 35%, transparent); background: var(--fail-soft); }
+.banner.error .banner-text { color: var(--text); }
+details.advanced { margin: 4px 0 8px; }
+details.advanced > summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 4px 0; }
 .banner.running { background: var(--accent-soft); border-color: transparent; }
 .banner-title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .banner-text { color: var(--muted); margin-top: 2px; word-break: break-word; }
