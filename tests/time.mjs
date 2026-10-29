@@ -309,6 +309,10 @@ try {
     assert.equal(painel1.radar.resumo.falhas, 1);
     assert.equal(painel1.radar.categorias[0].cat, 'selector');
   });
+  await check('servidor nomeia o site com o endereço que a extensão mandou (IP fica sem projeto)', async () => {
+    assert.deepEqual(Object.values(painel1.config.sites), [new URL(base).host]);
+    assert.ok(!Object.values(painel1.config.projetos).some((p) => p.sites.length));
+  });
   await check('nome do QA digitado em Configurações > Time chega ao painel do servidor', async () => {
     assert.deepEqual(painel1.radar.qas.map((q) => q.nome), ['Rodrigo QA']);
     const soDele = await admin('painel', { filtro: { qa: painel1.radar.qas[0].id } });

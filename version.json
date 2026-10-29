@@ -1,5 +1,5 @@
 {
-  "version": "1.6.1",
-  "notes": "QR code do link do relatório para abrir no celular. Inclui a 1.6.0: print de cada passo, prints no ClickUp e seção Testes no painel do time.",
+  "version": "1.7.0",
+  "notes": "O painel do time cria o projeto sozinho a partir do endereço do site e já mostra o site com o nome do domínio.",
   "download": "https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip"
 }

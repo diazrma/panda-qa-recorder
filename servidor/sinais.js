@@ -4,12 +4,14 @@ import { gravar, lerTodosJSON, lerJSON } from './armazem.js';
 import { analisar, textoDoBug } from './radar.js';
 import { config, modeloAtual, classificar, deEsparso } from './federado.js';
 import { criarTarefa } from './clickup.js';
+import { registrarSites } from './projetos.js';
 
 const limpa = (v, n) => String(v ?? '').replace(/[^\w/#*?.-]/g, '').slice(0, n);
 export const limpaNome = (v) => String(v ?? '').replace(/[^\p{L}\p{N} .'-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 40);
 const dias = (n, agora) => Array.from({ length: n }, (_, i) => new Date(agora - i * 864e5).toISOString().slice(0, 10));
 
-export async function receberSinais({ cliente, nome, sinais }) {
+export async function receberSinais({ cliente, nome, sinais, sites }) {
+  await registrarSites(sites).catch((e) => console.error('projeto automático', e));
   if (!Array.isArray(sinais) || !sinais.length) return { ok: true, recebidos: 0 };
   const agora = Date.now();
   const q = limpaNome(nome);

@@ -316,7 +316,7 @@ function cartaoProjetos() {
   const todosSites = [...new Set([...Object.keys(dados.config.sites || {}), ...(dados.radar.sitesVistos || []), ...usados])]
     .sort((a, b) => nomeSite(a).localeCompare(nomeSite(b), 'pt-BR'));
   const dono = (alias) => projetos.find(([id, p]) => id !== editandoProjeto && (p.sites || []).includes(alias));
-  return `<div class="card" style="margin-bottom:14px"><h2>Projetos<span class="sub">agrupam os sites de um cliente (local, staging, produção)</span></h2>
+  return `<div class="card" style="margin-bottom:14px"><h2>Projetos<span class="sub">agrupam os sites de um cliente (local, staging, produção); site novo entra sozinho no projeto do domínio</span></h2>
     <form id="projeto-form">
       <div class="form"><label>Nome do projeto<input id="projeto-nome" value="${esc(ed?.nome || '')}" placeholder="MetLife" required maxlength="60"></label>
         <button class="btn primary" type="submit">${ed ? 'Salvar projeto' : 'Criar projeto'}</button>

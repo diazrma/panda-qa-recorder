@@ -108,7 +108,7 @@ export default rota(async (req, res) => {
     const aprendizado = await resetarAprendizado();
     const execucoesRemovidas = await apagarTodasExecucoes();
     await apagar([...sinais, ...bugs].map((item) => item.chave));
-    await salvarConfig({ ...cfg, sites: {} });
+    await salvarConfig({ ...cfg, sites: {}, sitesAuto: {} });
     return responder(res, 200, {
       ok: true,
       aprendizado,

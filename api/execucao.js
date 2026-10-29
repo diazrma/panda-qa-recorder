@@ -1,4 +1,4 @@
-// POST /api/execucao { cliente, nome, s, t, teste: { name, steps }, run, shots: { índice: dataUrl } }
+// POST /api/execucao { cliente, nome, s, o?, t, teste: { name, steps }, run, shots: { índice: dataUrl } }
 // -> guarda a última execução do teste para a seção Testes do painel (só com a chave do time).
 import { rota, responder, exigirEquipe, lerCorpo } from '../servidor/http.js';
 import { receberExecucao } from '../servidor/execucoes.js';

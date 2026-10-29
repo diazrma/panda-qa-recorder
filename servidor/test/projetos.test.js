@@ -90,3 +90,41 @@ test('um site fica em um projeto só e remover o projeto deixa o site sem projet
   assert.equal(painel.config.projetos[id], undefined);
   assert.equal(painel.radar.resumo.execucoes, 12, 'os sinais do site sem projeto aparecem em "Sites sem projeto"');
 });
+
+test('projetoDoHost tira ambiente, domínio e hash de nuvem do endereço', async () => {
+  const { projetoDoHost } = await import('../projetos.js');
+  assert.equal(projetoDoHost('qa.metlife.cl'), 'Metlife');
+  assert.equal(projetoDoHost('mcstaging.metlife.cl'), 'Metlife');
+  assert.equal(projetoDoHost('metlife-prod.test:8443'), 'Metlife');
+  assert.equal(projetoDoHost('www.mueller.com.br'), 'Mueller');
+  assert.equal(projetoDoHost('loja-simpress.vercel.app'), 'Simpress');
+  assert.equal(projetoDoHost('integration-5ojmyuq-5ehg7wpib3ac2.us-4.magentosite.cloud'), null);
+  assert.equal(projetoDoHost('127.0.0.1:8080'), null);
+  assert.equal(projetoDoHost('localhost'), null);
+});
+
+test('site novo ganha o nome do host e entra no projeto do domínio, sem mexer no que o admin já arrumou', async () => {
+  const { siteAlias } = await import('../../lib/anon.js');
+  const qa = 'https://qa.metlifesegurosonline.cl';
+  const local = 'https://metlifesegurosonline.test';
+  const mue = 'https://www.mueller.com.br';
+  await fetch(`${base}/api/sinal`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-equipe': process.env.EQUIPE_CHAVE }, body: JSON.stringify({
+    cliente: 'qa1', sinais: [sinal(siteAlias(qa), 'passed', 0.1), sinal(siteAlias(local), 'passed', 0.1), sinal(siteAlias(mue), 'passed', 0.1)],
+    sites: { [siteAlias(qa)]: qa, [siteAlias(local)]: local, [siteAlias(mue)]: mue, sFalso: 'https://outro.com' },
+  }) });
+  let cfg = (await admin('painel')).config;
+  assert.equal(cfg.sites[siteAlias(qa)], 'qa.metlifesegurosonline.cl');
+  assert.equal(cfg.sites.sFalso, undefined, 'endereço que não bate com o apelido é ignorado');
+  const met = Object.values(cfg.projetos).find((p) => p.sites.includes(siteAlias(qa)));
+  assert.equal(met.nome, 'MetLife', 'o domínio metlifesegurosonline começa pelo projeto MetLife que já existia');
+  assert.ok(met.sites.includes(siteAlias(local)), 'local e staging do mesmo cliente caem no mesmo projeto');
+  const mueller = Object.values(cfg.projetos).find((p) => p.sites.includes(siteAlias(mue)));
+  assert.equal(mueller.nome, 'Mueller', 'usa o projeto Mueller que já existia');
+
+  // O admin tira o site do projeto: o servidor não coloca de volta.
+  const [id] = Object.entries(cfg.projetos).find(([, p]) => p.nome === met.nome);
+  await admin('projeto', { id, nome: met.nome, sites: [siteAlias(local)] });
+  await fetch(`${base}/api/sinal`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-equipe': process.env.EQUIPE_CHAVE }, body: JSON.stringify({ cliente: 'qa1', sinais: [sinal(siteAlias(qa), 'passed', 0)], sites: { [siteAlias(qa)]: qa } }) });
+  cfg = (await admin('painel')).config;
+  assert.ok(!Object.values(cfg.projetos).some((p) => p.sites.includes(siteAlias(qa))));
+});

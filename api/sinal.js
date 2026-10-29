@@ -1,4 +1,4 @@
-// POST /api/sinal { cliente, sinais: [{ s, f, t, st, ms, at, v? }] } -> radar das lojas.
+// POST /api/sinal { cliente, sinais: [{ s, f, t, st, ms, at, v? }], sites?: { apelido: origem } } -> radar das lojas.
 import { rota, responder, exigirEquipe, lerCorpo } from '../servidor/http.js';
 import { receberSinais } from '../servidor/sinais.js';
 

@@ -736,7 +736,7 @@ function renderSettings() {
       <label class="check"><input type="checkbox" data-setting="teamLearn" ${s.teamLearn !== false ? 'checked' : ''}>
         <span>Aprender com o time<br><small>Baixa o modelo do time e manda só a diferença de pesos que suas correções geraram. Nenhum texto, URL ou print sai do navegador.</small></span></label>
       <label class="check"><input type="checkbox" data-setting="teamRadar" ${s.teamRadar !== false ? 'checked' : ''}>
-        <span>Radar das lojas<br><small>A cada execução manda o apelido do site (não o endereço), o trecho da URL (ex.: /checkout), se passou ou falhou, o tempo, os números da falha e o seu nome, se preenchido.</small></span></label>
+        <span>Radar das lojas<br><small>A cada execução manda o endereço do site (só o domínio, para o painel criar o projeto sozinho), o trecho da URL (ex.: /checkout), se passou ou falhou, o tempo, os números da falha e o seu nome, se preenchido.</small></span></label>
       <label class="check"><input type="checkbox" data-setting="teamRuns" ${s.teamRuns ? 'checked' : ''}>
         <span>Enviar execuções para o painel do time<br><small>A cada execução manda o nome do teste, os passos, o resultado e os prints (se ligados) para a seção Testes do painel, protegida pela chave do time. Fica só a última execução de cada teste.</small></span></label>
       <div class="banner-text">${teamStatus()}</div>

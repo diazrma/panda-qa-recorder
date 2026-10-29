@@ -379,6 +379,7 @@ async function runTest(testId, tabId, startIndex = 0, job = null) {
 }
 
 // Sinal do radar das lojas: só apelido do site, trecho da URL, resultado e o vetor de números da falha.
+// A origem do site (sem caminho) vai separada, para o servidor nomear o site e montar o projeto.
 async function radarSignal(testId, tabId, run) {
   const test = await getTest(testId);
   let url = run.diagnostics?.url;
@@ -387,7 +388,7 @@ async function radarSignal(testId, tabId, run) {
   if (!origin) return;
   const signal = { s: siteAlias(origin), f: fluxoDe(url || origin), t: siteAlias(testId), st: run.status, ms: run.finishedAt - run.startedAt, at: run.finishedAt };
   if (run.status === 'failed') signal.v = sparseVector(failureOf(test, test.lastRun));
-  await queueSignal(signal);
+  await queueSignal(signal, origin);
 }
 
 // Execução completa para o painel do time (opcional, Configurações > Time): passos, resultado e prints.
@@ -396,7 +397,7 @@ async function sendRunToTeam(testId, tabId, run, shots) {
   let url = run.diagnostics?.url;
   if (!url) url = await chrome.tabs.get(tabId).then((t) => t.url, () => null);
   const origin = test.site || (url && /^https?:/.test(url) ? new URL(url).origin : null);
-  await uploadRun({ test, run: test.lastRun, site: origin ? siteAlias(origin) : '', testAlias: siteAlias(testId), shots: shots || {} });
+  await uploadRun({ test, run: test.lastRun, site: origin ? siteAlias(origin) : '', origin: origin || '', testAlias: siteAlias(testId), shots: shots || {} });
 }
 
 async function abortableSleep(ms) {

@@ -4,6 +4,7 @@
 import { gravar, lerJSON, lerTodosJSON, listar, apagar } from './armazem.js';
 import { limpaNome } from './sinais.js';
 import { describeStep } from '../lib/steps.js';
+import { registrarSites } from './projetos.js';
 
 const limpa = (v, n) => String(v ?? '').replace(/[^\w-]/g, '').slice(0, n);
 const texto = (v, n) => String(v ?? '').slice(0, n);
@@ -16,6 +17,7 @@ export async function receberExecucao(d) {
   if (!c || !t) throw Object.assign(new Error('Faltou o QA ou o teste.'), { status: 400 });
   const steps = (Array.isArray(d.teste?.steps) ? d.teste.steps : []).slice(0, 300);
   if (!steps.length) throw Object.assign(new Error('Execução sem passos.'), { status: 400 });
+  if (d.o) await registrarSites({ [limpa(d.s, 16)]: d.o }).catch((e) => console.error('projeto automático', e));
   const r = d.run || {};
   const results = (Array.isArray(r.results) ? r.results : []).slice(0, steps.length).map((x) => ({
     status: STATUS.includes(x?.status) ? x.status : 'pending',
