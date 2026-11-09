@@ -292,6 +292,16 @@ try {
   });
 
   console.log('Diagnóstico com IA local (TensorFlow.js)');
+  const defaults = await panel.evaluate(async () => ({ ...(await import('../lib/store.js')).DEFAULT_SETTINGS }));
+  await check('IA, aprendizado do time e radar vêm desligados por padrão', async () => {
+    assert.equal(defaults.aiDiagnosis, false);
+    assert.equal(defaults.teamLearn, false);
+    assert.equal(defaults.teamRadar, false);
+  });
+  await sw.evaluate(async () => {
+    const { settings } = await chrome.storage.local.get('settings');
+    await chrome.storage.local.set({ settings: { ...(settings || {}), aiDiagnosis: true } });
+  });
   const ai = await panel.evaluate(async () => {
     const { diagnose, ensureModel, learn, failureOf, resetModel, backend } = await import('../lib/diagnosis.js');
     await resetModel();

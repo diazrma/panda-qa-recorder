@@ -60,6 +60,8 @@ Com isso, **Baixar relatório** gera um HTML com tudo (passos, erros, mensagens 
 
 Quando um teste falha, o painel mostra o tipo provável da falha, a confiança, a explicação e o que fazer, e indica a origem: ajustar o teste, problema no site ou ambiente. O modelo roda dentro da extensão (TensorFlow.js, backend WebGL ou CPU), e nada é enviado para serviços de terceiros.
 
+Vem desligado. Para usar, marque **Diagnóstico com IA local** nas Configurações.
+
 Categorias: elemento mudou ou sumiu, sessão de execução anterior, captcha, lentidão, erro no servidor (5xx), campo obrigatório ou inválido, recusa da loja, dado já cadastrado, erro de JavaScript, redirecionamento inesperado, texto diferente e configuração do teste.
 
 - O modelo base vem treinado em `lib/model/` (gerado por `npm run train` a partir de exemplos de falhas típicas de Magento em pt/es/en), então a primeira análise é imediata.
@@ -86,7 +88,7 @@ Em Configurações > ClickUp, cole o seu token pessoal (ClickUp: avatar > Settin
 2. Na extensão, abra Configurações (engrenagem). A seção **Time** fica no topo: cole o convite (`PANDATIME1.…`, pode colar a mensagem inteira) e clique em **Entrar no time**.
 3. Preencha o seu nome. Sem nome você aparece no painel como QA anônimo.
 
-O convite já traz o endereço do servidor e a chave, confere a chave antes de salvar e liga o **Radar das lojas** e o **Enviar execuções para o painel do time**. Servidor e chave ficam em **Avançado**, só para ajuste manual. Se o admin trocar a chave, a tela principal da extensão mostra **O servidor do time recusou a chave**, com o botão **Colar convite**: é só colar o convite novo.
+O convite já traz o endereço do servidor e a chave, confere a chave antes de salvar e liga o **Radar das lojas** e o **Enviar execuções para o painel do time**. **Aprender com o time** e o **Diagnóstico com IA local** continuam desligados: marque se quiser. Servidor e chave ficam em **Avançado**, só para ajuste manual. Se o admin trocar a chave, a tela principal da extensão mostra **O servidor do time recusou a chave**, com o botão **Colar convite**: é só colar o convite novo.
 
 O ícone do time (👥) no topo da extensão abre o seu painel (veja **Painel do QA**).
 

@@ -1,5 +1,5 @@
 {
-  "version": "1.9.0",
-  "notes": "Entrar no time com um convite só (PANDATIME1.…), aviso quando a chave é trocada, seção Time no topo das configurações e ícone do painel do time na tela principal.",
+  "version": "1.9.1",
+  "notes": "Diagnóstico com IA, aprendizado do time e radar vêm desligados até você ligar ou entrar no time pelo convite. Instalada pela Chrome Web Store, a extensão atualiza sozinha.",
   "download": "https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip"
 }

@@ -270,6 +270,14 @@ try {
     assert.equal(st.teamRuns, true);
     assert.equal(st.teamRadar, true);
   });
+  await check('aprendizado do time e IA local continuam desligados até o QA marcar', async () => {
+    const st = await sw.evaluate(async () => (await chrome.storage.local.get('settings')).settings);
+    assert.notEqual(st.teamLearn, true);
+    assert.notEqual(st.aiDiagnosis, true);
+  });
+  await panel.check('input[data-setting="teamLearn"]');
+  await panel.check('input[data-setting="aiDiagnosis"]');
+  await panel.waitForFunction(async () => { const s = (await chrome.storage.local.get('settings')).settings || {}; return s.teamLearn === true && s.aiDiagnosis === true; });
   await panel.fill('input[data-setting="teamName"]', 'Rodrigo QA');
   await panel.press('input[data-setting="teamName"]', 'Tab');
   await panel.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings?.teamName === 'Rodrigo QA');

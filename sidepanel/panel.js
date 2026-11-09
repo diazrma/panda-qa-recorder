@@ -395,7 +395,7 @@ let learnedTotal = 0;
 const runKey = (test, run) => `${test.id}:${run.at || run.finishedAt}:${learnedTotal}`;
 
 async function diagFor(test, run) {
-  if (state.settings.aiDiagnosis === false) return null;
+  if (state.settings.aiDiagnosis !== true) return null;
   const key = runKey(test, run);
   const cached = aiCache.get(key);
   if (cached && cached !== 'loading' && !cached.error) return cached;
@@ -443,7 +443,7 @@ function failureDetails(run, withShot) {
   const which = run === test?.lastFailure ? 'failure' : 'last';
   return `
     <div class="banner-text">${esc(run.error || '')}</div>
-    ${test && run.error && state.settings.aiDiagnosis !== false ? aiBox(test, run, which) : ''}
+    ${test && run.error && state.settings.aiDiagnosis === true ? aiBox(test, run, which) : ''}
     ${messages.length ? `<div class="diag"><div class="diag-title">Mensagens na página</div><ul>${messages.map((m) => `<li>${esc(m)}</li>`).join('')}</ul></div>` : ''}
     ${logs.length ? `<div class="diag"><div class="diag-title">Erros capturados (${logs.length})</div><ul class="mono">${logs.slice(0, 6).map((l) => `<li>Passo ${l.step + 1} · ${esc(logText(l))}</li>`).join('')}${logs.length > 6 ? `<li>e mais ${logs.length - 6}…</li>` : ''}</ul></div>` : ''}
     ${run.diagnostics?.url ? `<div class="banner-text small">Página: ${esc(run.diagnostics.url)}</div>` : ''}
@@ -696,6 +696,19 @@ function renderVars() {
     </div>`;
 }
 
+function updateSection() {
+  if (state.update?.store) {
+    return `<div class="banner-text">Versão instalada: <b>${esc(chrome.runtime.getManifest().version)}</b> · a Chrome Web Store atualiza sozinha.</div>`;
+  }
+  return `
+      <div class="banner-text">Versão instalada: <b>${esc(chrome.runtime.getManifest().version)}</b>${state.update?.checkedAt ? ` · verificado em ${new Date(state.update.checkedAt).toLocaleString('pt-BR')}` : ''}${state.update?.available ? ` · <b>nova versão ${esc(state.update.latest)} disponível</b>` : state.update && !state.update.error ? ' · você está na versão mais recente' : ''}${state.update?.error ? `<br>${esc(state.update.error)}` : ''}</div>
+      <div class="banner-actions" style="margin-top:0">
+        <button class="btn small" data-action="update-check">${ICON.download}Verificar atualização</button>
+        ${state.update?.available ? `<button class="btn small primary" data-action="update-show">Como atualizar</button>` : ''}
+        <button class="btn small ghost" data-action="ext-reload" title="Use depois de trocar os arquivos da pasta">Recarregar extensão</button>
+      </div>`;
+}
+
 function renderSettings() {
   const s = state.settings;
   return `
@@ -717,9 +730,9 @@ function renderSettings() {
         <small>Aparece no painel do time junto com as suas execuções. Vazio: você aparece como QA anônimo.</small></label>
       <label class="check"><input type="checkbox" data-setting="teamRuns" ${s.teamRuns ? 'checked' : ''}>
         <span>Enviar execuções para o painel do time<br><small>A cada execução manda o nome do teste, os passos, o resultado e os prints (se ligados), para você e o time verem no painel. Fica só a última execução de cada teste.</small></span></label>
-      <label class="check"><input type="checkbox" data-setting="teamRadar" ${s.teamRadar !== false ? 'checked' : ''}>
+      <label class="check"><input type="checkbox" data-setting="teamRadar" ${s.teamRadar === true ? 'checked' : ''}>
         <span>Radar das lojas<br><small>A cada execução manda o domínio do site (o painel cria o projeto sozinho), o trecho da URL (ex.: /checkout), se passou ou falhou, o tempo e os números da falha.</small></span></label>
-      <label class="check"><input type="checkbox" data-setting="teamLearn" ${s.teamLearn !== false ? 'checked' : ''}>
+      <label class="check"><input type="checkbox" data-setting="teamLearn" ${s.teamLearn === true ? 'checked' : ''}>
         <span>Aprender com o time<br><small>Baixa o diagnóstico treinado pelo time e manda só a diferença de pesos das suas correções. Nenhum texto, URL ou print.</small></span></label>
       <details class="advanced"><summary>Avançado: servidor e chave</summary>
         <label>Servidor do time
@@ -741,14 +754,9 @@ function renderSettings() {
       <label class="check"><input type="checkbox" data-setting="stepShots" ${s.stepShots ? 'checked' : ''}>
         <span>Print de cada passo<br><small>Tira um print da tela depois de cada passo (só a última execução de cada teste fica guardada). Os prints aparecem nos passos, no relatório e no ClickUp. Deixa a execução cerca de meio segundo mais lenta por passo.</small></span></label>
       <div class="section-title" style="padding:8px 0 0">Atualização</div>
-      <div class="banner-text">Versão instalada: <b>${esc(chrome.runtime.getManifest().version)}</b>${state.update?.checkedAt ? ` · verificado em ${new Date(state.update.checkedAt).toLocaleString('pt-BR')}` : ''}${state.update?.available ? ` · <b>nova versão ${esc(state.update.latest)} disponível</b>` : state.update && !state.update.error ? ' · você está na versão mais recente' : ''}${state.update?.error ? `<br>${esc(state.update.error)}` : ''}</div>
-      <div class="banner-actions" style="margin-top:0">
-        <button class="btn small" data-action="update-check">${ICON.download}Verificar atualização</button>
-        ${state.update?.available ? `<button class="btn small primary" data-action="update-show">Como atualizar</button>` : ''}
-        <button class="btn small ghost" data-action="ext-reload" title="Use depois de trocar os arquivos da pasta">Recarregar extensão</button>
-      </div>
+      ${updateSection()}
       <div class="section-title" style="padding:8px 0 0">Inteligência</div>
-      <label class="check"><input type="checkbox" data-setting="aiDiagnosis" ${s.aiDiagnosis !== false ? 'checked' : ''}>
+      <label class="check"><input type="checkbox" data-setting="aiDiagnosis" ${s.aiDiagnosis === true ? 'checked' : ''}>
         <span>Diagnóstico com IA local<br><small>Quando um teste falha, um modelo TensorFlow que roda dentro da extensão diz o tipo provável da falha e o que fazer. Nada é enviado para fora do navegador. Aprendeu com ${learnedTotal} correção(ões).</small></span></label>
       <label class="check"><input type="checkbox" data-setting="autoHeal" ${s.autoHeal !== false ? 'checked' : ''}>
         <span>Auto-correção de seletores<br><small>Se o elemento gravado não for encontrado, procura o mais parecido (mesmo texto, rótulo, id ou name) e segue. O passo fica marcado para você aplicar ou não a correção.</small></span></label>

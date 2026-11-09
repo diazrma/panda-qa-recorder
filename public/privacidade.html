@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panda QA Recorder · Privacidade</title>
+<style>
+  :root { --bg: #f5f6f8; --surface: #fff; --border: #e2e5ea; --text: #15181e; --muted: #626a77; --accent: #2563eb; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --surface: #171a21; --border: #2b303b; --text: #e8eaef; --muted: #98a0ad; --accent: #5b8cff; color-scheme: dark; }
+  }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 28px 0 8px; }
+  p, li { color: var(--text); }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Política de privacidade</h1>
+  <p class="muted">Panda QA Recorder · atualizada em 9 de novembro de 2026</p>
+
+  <p>O Panda QA Recorder é uma extensão do Chrome para gravar e repetir testes de front-end (login, cadastro, checkout). Ela foi feita para equipes de QA e roda no navegador de quem a instala.</p>
+
+  <h2>O que fica só no seu navegador</h2>
+  <ul>
+    <li>Os testes gravados: passos, seletores, URLs e valores digitados nos campos.</li>
+    <li>O histórico de execuções, os prints tirados quando um teste falha, as mensagens e os erros capturados na página.</li>
+    <li>As variáveis (como <code>baseUrl</code> e senhas de teste) e as configurações.</li>
+    <li>O modelo de diagnóstico com IA local e o que ele aprendeu com as suas correções.</li>
+  </ul>
+  <p>Esses dados ficam em <code>chrome.storage.local</code>. Os backups automáticos são salvos na sua pasta Downloads. Nada disso é enviado para o desenvolvedor da extensão.</p>
+
+  <h2>O que só sai do navegador se você ligar</h2>
+  <p>Todos estes recursos vêm desligados e dependem de configuração feita por você:</p>
+  <ul>
+    <li><b>Servidor do time</b>: só funciona depois que você entra no time com o convite (endereço e chave) que a sua equipe passar. Ao entrar, ligam o <b>Radar das lojas</b> e o <b>Enviar execuções para o painel do time</b>; dá para desligar cada um nas Configurações.
+      <ul>
+        <li><b>Radar das lojas</b>: o domínio do site, o trecho da URL (ex.: <code>/checkout</code>), se o teste passou ou falhou, o tempo, os números da falha e o nome do QA, se preenchido.</li>
+        <li><b>Enviar execuções para o painel do time</b>: o nome do teste, os passos, o resultado e os prints, se ligados. Senhas digitadas viram variáveis e não são enviadas, nem os e-mails gerados no teste.</li>
+        <li><b>Aprender com o time</b> (desligado por padrão): só a diferença de pesos do modelo (números), nunca texto, URL ou print.</li>
+        <li><b>Link do relatório</b>: envia o relatório da execução escolhida.</li>
+      </ul>
+      Esses dados vão só para o servidor informado no convite.</li>
+    <li><b>ClickUp</b>: com o seu token pessoal, a extensão lança horas, comenta e anexa o relatório na tarefa que você escolher, direto na API do ClickUp.</li>
+    <li><b>Verificar atualização</b> (só na versão instalada por arquivo): consulta um arquivo de versão no GitHub, sem enviar dados seus.</li>
+  </ul>
+
+  <h2>O que não fazemos</h2>
+  <ul>
+    <li>Não vendemos nem repassamos dados a terceiros.</li>
+    <li>Não usamos os dados para publicidade, crédito ou qualquer finalidade fora do teste de sites.</li>
+    <li>Não há analytics, rastreamento nem servidor do desenvolvedor recebendo dados.</li>
+  </ul>
+
+  <h2>Permissões</h2>
+  <p>A extensão precisa acessar as páginas que você testa para gravar cliques e campos, repetir os passos, capturar erros da página e tirar o print da falha. Ela também limpa os cookies e os dados salvos só do site testado antes de cada execução, para o teste começar numa sessão limpa.</p>
+
+  <h2>Apagar os dados</h2>
+  <p>Remover a extensão apaga tudo o que ela guardou no Chrome. Nas Configurações dá para apagar o aprendizado da IA. Os backups ficam na pasta Downloads até você apagá-los.</p>
+
+  <h2>Contato</h2>
+  <p>Rodrigo Cardoso · <a href="https://github.com/diazrma/panda-qa-recorder/issues">github.com/diazrma/panda-qa-recorder</a></p>
+</main>
+</body>
+</html>

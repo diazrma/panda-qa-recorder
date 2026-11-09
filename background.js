@@ -551,6 +551,12 @@ async function checkUpdate() {
   const { updateUrl } = await getSettings();
   const current = chrome.runtime.getManifest().version;
   const info = { current, checkedAt: Date.now(), available: false };
+  const self = await chrome.management.getSelf().catch(() => null);
+  if (self && self.installType === 'normal') {
+    info.store = true;
+    await chrome.storage.local.set({ updateInfo: info });
+    return info;
+  }
   try {
     if (!updateUrl) throw new Error('Endereço de atualização não configurado.');
     // Parâmetro único por consulta: o raw.githubusercontent.com guarda a resposta por 5 min.
