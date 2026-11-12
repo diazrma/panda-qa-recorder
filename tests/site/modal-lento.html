@@ -1,0 +1,16 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Modal lento - Loja Demo</title>
+<link rel="stylesheet" href="site.css"></head><body>
+<header class="top"><a class="trigger-auth-popup" href="#">Entrar</a></header>
+<main><h1>Home</h1></main>
+<aside class="popup-authentication" style="display:none"><h2>Faça login</h2><input id="customer-email" name="username" type="email"><button class="action-close" type="button">Fechar</button></aside>
+<script>
+// Como o Magento: o RequireJS carrega os módulos depois do "load" e só então liga o clique.
+window.require = { s: { contexts: { _: { registry: { 'Magento_Customer/js/view/authentication-popup': {} } } } } };
+const popup = document.querySelector('.popup-authentication');
+setTimeout(() => {
+  document.querySelector('.trigger-auth-popup').addEventListener('click', (e) => { e.preventDefault(); popup.style.display = 'block'; });
+  popup.querySelector('.action-close').addEventListener('click', () => { popup.style.display = 'none'; });
+  window.require.s.contexts._.registry = {};
+}, 1800);
+</script>
+</body></html>

@@ -1,0 +1,31 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Criar conta - Loja Demo</title>
+<link rel="stylesheet" href="site.css"></head><body>
+<main><div class="page messages"></div>
+<h1>Criar conta</h1>
+<div class="panel">
+<form id="form-validate" action="/customer/account/createpost/">
+  <label for="firstname">Nome</label><input id="firstname" name="firstname">
+  <label for="email_address">E-mail</label><input id="email_address" name="email" type="email">
+  <label for="taxvat">CPF</label><input id="taxvat" name="taxvat">
+  <label for="password">Senha</label><input id="password" name="password" type="password">
+  <label for="password-confirmation">Confirmar senha</label><input id="password-confirmation" name="password_confirmation" type="password">
+  <button type="submit" class="action submit primary"><span>Criar conta</span></button>
+</form>
+</div>
+<div class="panel">
+<form id="login-form">
+  <label for="login-email">E-mail para entrar</label><input id="login-email" name="login[username]" type="email">
+  <label for="login-pass">Senha para entrar</label><input id="login-pass" name="login[password]" type="password">
+</form>
+<p class="welcome"></p>
+</div></main>
+<script>
+document.getElementById('form-validate').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const email = e.target.elements.email.value;
+  const used = JSON.parse(sessionStorage.getItem('usados') || '[]');
+  document.querySelector('.welcome').textContent = used.includes(email) ? 'Já existe uma conta com este e-mail.' : `Conta criada: ${email}`;
+  sessionStorage.setItem('usados', JSON.stringify([...used, email]));
+});
+</script>
+</body></html>

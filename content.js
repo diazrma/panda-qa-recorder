@@ -205,7 +205,49 @@
       secret = value;
       value = '{{senha}}';
     }
-    record({ type: 'type', selectors, value, label: fieldLabel(el), secret, fp: fingerprint(el) }, 'type:' + JSON.stringify(selectors[0]));
+    const autoVar = uniqueVarFor(el, value);
+    record({ type: 'type', selectors, value, label: fieldLabel(el), secret, autoVar, fp: fingerprint(el) }, 'type:' + JSON.stringify(selectors[0]));
+  }
+
+  // ---------- Dados únicos em formulários de cadastro ----------
+
+  const SIGNUP_URL = /create|regist|cadastr|signup|sign-up|newsletter|subscri|inscri|crear|nueva-cuenta/i;
+  const SIGNUP_FIELD = /first.?name|last.?name|^nome$|sobrenome|apellido|taxvat|cpf|rut|dob|nascimento|telephone|telefone|celular/i;
+
+  /**
+   * Formulário que cria um registro novo (conta, newsletter): repetir com o mesmo e-mail ou CPF
+   * dá "já cadastrado". Login (um campo de senha e nada de cadastro) não entra.
+   */
+  function isSignupForm(el) {
+    const form = el.form || el.closest('form');
+    if (!form) return false;
+    if (form.querySelectorAll('input[type=password]').length >= 2) return true;
+    const names = [...form.querySelectorAll('input, select')].map((i) => `${i.name} ${i.id}`);
+    if (names.some((n) => SIGNUP_FIELD.test(n))) return true;
+    return SIGNUP_URL.test(`${form.getAttribute('action') || ''} ${form.id} ${form.className}`);
+  }
+
+  function isEmailField(el) {
+    return el.type === 'email' || /e-?mail/i.test(`${el.name} ${el.id} ${el.getAttribute('autocomplete') || ''}`);
+  }
+
+  function isCpf(value) {
+    const d = String(value).replace(/\D/g, '');
+    if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+    const check = (n) => {
+      const sum = [...d.slice(0, n)].reduce((acc, c, i) => acc + Number(c) * (n + 1 - i), 0);
+      return ((sum * 10) % 11) % 10;
+    };
+    return check(9) === Number(d[9]) && check(10) === Number(d[10]);
+  }
+
+  /** Variável gerada a cada execução para o campo, quando ele precisa de valor único. */
+  function uniqueVarFor(el, value) {
+    if (!(el instanceof HTMLInputElement) || el.type === 'password' || !value) return undefined;
+    if (!isSignupForm(el)) return undefined;
+    if (isEmailField(el)) return '$email';
+    if (isCpf(value)) return '$cpf';
+    return undefined;
   }
 
   function onChange(e) {

@@ -45,7 +45,7 @@ Em Configurações, ligue **Print de cada passo** (vem desligado). A cada passo 
 
 ## Repetir várias vezes
 
-Abaixo dos botões do teste: **Repetir N vez(es)** e **intervalo** em segundos entre uma execução e outra (até 500 repetições). Cada repetição gera variáveis novas (outro `{{$email}}`, outro `{{$cpf}}`), então dá para criar vários cadastros seguidos. No fim aparece o placar ("8 de 10 execuções passaram"); se alguma falhou, a última falha fica guardada com print e erros, mesmo que as seguintes tenham passado. O botão **Parar** interrompe inclusive durante o intervalo.
+Abaixo dos botões do teste: **Repetir N vez(es)** e **intervalo** em segundos entre uma execução e outra (até 500 repetições). Cada repetição gera variáveis novas (outro `{{$email}}`, outro `{{$cpf}}`), então dá para criar vários cadastros seguidos. Ao gravar num formulário de cadastro ou newsletter, a extensão já troca o e-mail digitado por `{{$email}}` e o CPF por `{{$cpf}}`, e também os passos seguintes que repetem esse e-mail (login logo depois, confirmação, texto de boas-vindas). Login comum mantém o e-mail fixo. No fim aparece o placar ("8 de 10 execuções passaram"); se alguma falhou, a última falha fica guardada com print e erros, mesmo que as seguintes tenham passado. O botão **Parar** interrompe inclusive durante o intervalo.
 
 ## Quando falha: o que a extensão captura
 

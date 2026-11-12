@@ -1,5 +1,5 @@
 {
-  "version": "1.9.1",
-  "notes": "Diagnóstico com IA, aprendizado do time e radar vêm desligados até você ligar ou entrar no time pelo convite. Instalada pela Chrome Web Store, a extensão atualiza sozinha.",
+  "version": "1.10.0",
+  "notes": "Replay espera o JS da página (Magento) antes de clicar, então pop-ups como o de login abrem certo. Em formulários de cadastro e newsletter, o e-mail vira {{$email}} e o CPF vira {{$cpf}} automaticamente, para repetir o cadastro sem \"e-mail já cadastrado\".",
   "download": "https://github.com/diazrma/panda-qa-recorder/releases/latest/download/panda-qa-recorder.zip"
 }

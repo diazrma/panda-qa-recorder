@@ -238,6 +238,61 @@ try {
     assert.deepEqual(t1.runs.slice(0, 3).map((r) => `${r.iter}/${r.of}`), ['3/3', '2/3', '1/3']);
   });
 
+  console.log('Cadastro com dado único');
+  await page.goto(`${base}/cadastro.html`);
+  await sw.evaluate(async () => {
+    const { tests } = await chrome.storage.local.get('tests');
+    tests.push({ id: 't5', name: 'Cadastro', steps: [], runs: [] });
+    await chrome.storage.local.set({ tests });
+  });
+  await sw.evaluate(({ tabId }) => self.qa.startRecording({ testId: 't5', tabId }), { tabId });
+  await page.waitForTimeout(300);
+  for (const [sel, v] of [['#firstname', 'Test'], ['#email_address', 'rodrigo.test@example.com'], ['#taxvat', '529.982.247-25'], ['#password', 'Senha123'], ['#password-confirmation', 'Senha123']]) {
+    await page.click(sel);
+    await page.keyboard.type(v);
+  }
+  await page.click('button.submit');
+  await page.click('#login-email');
+  await page.keyboard.type('rodrigo.test@example.com');
+  await page.waitForTimeout(300);
+  await sw.evaluate(() => self.qa.stopRecording());
+  await page.waitForTimeout(300);
+  const t5 = await sw.evaluate(async () => (await chrome.storage.local.get('tests')).tests.find((t) => t.id === 't5'));
+  const typed = t5.steps.filter((s) => s.type === 'type').map((s) => s.value);
+  console.log(`        ${JSON.stringify(typed)}`);
+  await check('no cadastro o e-mail vira {{$email}} e o CPF vira {{$cpf}}', async () => {
+    assert.deepEqual(typed, ['Test', '{{$email}}', '{{$cpf}}', '{{senha}}', '{{senha}}', '{{$email}}']);
+  });
+  await check('login fora do cadastro com o e-mail fixo continua fixo', async () => {
+    assert.equal(recorded.steps[1].value, 'rodrigo.test@example.com');
+  });
+  await sw.evaluate(async () => {
+    const { tests } = await chrome.storage.local.get('tests');
+    const t = tests.find((x) => x.id === 't5');
+    t.steps.push({ id: 'd1', type: 'assertText', selectors: [{ css: 'p.welcome' }], value: 'Conta criada', label: 'boas-vindas' });
+    Object.assign(t, { repeat: 2, interval: 0, cleanSession: false });
+    await chrome.storage.local.set({ tests });
+  });
+  const cadReps = await sw.evaluate(({ tabId }) => self.qa.runTests({ testIds: ['t5'], tabId }), { tabId });
+  await check('repete o cadastro 2 vezes sem "já existe uma conta"', async () => {
+    const last = await sw.evaluate(async () => (await chrome.storage.local.get('tests')).tests.find((t) => t.id === 't5').lastRun);
+    assert.deepEqual(cadReps.map((r) => r.status), ['passed', 'passed'], `${last.error} | passo ${last.failedIndex + 1} | ${JSON.stringify(last.results.map((r) => r.status))}`);
+  });
+
+  console.log('Modal que depende do JS da página');
+  await sw.evaluate(async () => {
+    const { tests } = await chrome.storage.local.get('tests');
+    tests.push({ id: 't6', name: 'Modal lento', runs: [], steps: [
+      { id: 'm1', type: 'navigate', url: '{{baseUrl}}/modal-lento.html' },
+      { id: 'm2', type: 'click', selectors: [{ tag: 'a', text: 'Entrar' }], label: 'Entrar' },
+      { id: 'm3', type: 'click', selectors: [{ tag: 'button', text: 'Fechar' }], label: 'Fechar', timeout: 1500 },
+    ] });
+    await chrome.storage.local.set({ tests });
+  });
+  const [modalRun] = await sw.evaluate(({ tabId }) => self.qa.runTests({ testIds: ['t6'], tabId }), { tabId });
+  const t6 = await sw.evaluate(async () => (await chrome.storage.local.get('tests')).tests.find((t) => t.id === 't6'));
+  await check('espera o RequireJS antes de clicar e o modal abre', async () => assert.equal(modalRun.status, 'passed', t6.lastRun.error));
+
   console.log('Painel');
   const panel = await context.newPage();
   const panelErrors = [];

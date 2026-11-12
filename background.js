@@ -46,6 +46,13 @@ async function appendStep(testId, step, mergeKey) {
     }
     delete step.secret;
   }
+  if (step.autoVar) {
+    // Valor digitado fica guardado para a troca nos outros passos ao parar a gravação.
+    step.recordedValue = step.value;
+    step.value = `{{${step.autoVar}}}`;
+  } else {
+    delete step.autoVar;
+  }
   await updateTest(testId, (test) => {
     const last = test.steps[test.steps.length - 1];
     if (mergeKey && last && last.mergeKey === mergeKey) {
@@ -75,10 +82,35 @@ async function startRecording({ testId, tabId }) {
   await chrome.tabs.sendMessage(tabId, { type: 'rec:on' }, { frameId: 0 });
 }
 
+/**
+ * O e-mail/CPF do cadastro costuma reaparecer depois (login, "confirmar e-mail", texto de
+ * boas-vindas): troca esses valores pela mesma variável, para tudo usar o dado gerado na execução.
+ * Só nos passos depois do cadastro: um login antes dele usa uma conta que já existe.
+ */
+function applyUniqueVars(steps) {
+  const map = new Map();
+  steps.forEach((s, i) => {
+    if (s.autoVar && s.recordedValue && !map.has(s.recordedValue)) map.set(s.recordedValue, { variable: `{{${s.autoVar}}}`, from: i });
+  });
+  if (!map.size) return false;
+  let changed = false;
+  steps.forEach((s, i) => {
+    if (s.autoVar || typeof s.value !== 'string') return;
+    let value = s.value;
+    for (const [literal, { variable, from }] of map) if (i > from) value = value.split(literal).join(variable);
+    if (value !== s.value) {
+      s.value = value;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
 async function stopRecording() {
   const rec = await getSession('rec');
   await setSession('rec', null);
   if (rec) chrome.tabs.sendMessage(rec.tabId, { type: 'rec:off' }, { frameId: 0 }).catch(() => {});
+  if (rec) await enqueue(() => updateTest(rec.testId, (t) => applyUniqueVars(t.steps)));
 }
 
 async function startPick({ testId, tabId }) {
@@ -137,11 +169,45 @@ async function ensureContent(tabId) {
   throw new Error('Não foi possível conectar à página (chrome://, loja do Chrome e PDFs não são suportados).');
 }
 
+/**
+ * Espera o RequireJS da página terminar de carregar os módulos (Magento): o "load" do navegador
+ * chega antes dos widgets ligarem os eventos, e um clique nessa janela não faz nada (ex.: o
+ * "Entrar" que abre o pop-up de login). Sites sem RequireJS seguem na hora. Nunca falha o passo.
+ */
+async function waitForPageScripts(tabId, maxMs = 8000) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId, frameIds: [0] },
+      world: 'MAIN',
+      args: [maxMs],
+      func: async (max) => {
+        const pending = () => {
+          const ctx = window.require?.s?.contexts?._;
+          return ctx ? Object.keys(ctx.registry || {}).length : 0;
+        };
+        // Já esperou nesta página: só confere se nada novo está carregando.
+        if (window.__qaScriptsReady && pending() === 0) return;
+        const end = Date.now() + max;
+        let quiet = 0;
+        while (Date.now() < end) {
+          quiet = pending() === 0 ? quiet + 1 : 0;
+          if (quiet >= 2) break;
+          await new Promise((r) => setTimeout(r, 150));
+        }
+        window.__qaScriptsReady = true;
+      },
+    });
+  } catch {
+    // Página trocando ou restrita: o passo segue e o retry do execInPage cuida.
+  }
+}
+
 async function execInPage(tabId, step, settings) {
   const timeout = Number(step.timeout) || settings.timeout;
   const end = Date.now() + timeout + 10000;
   for (;;) {
     await waitForLoad(tabId);
+    await waitForPageScripts(tabId);
     await ensureContent(tabId);
     try {
       const res = await chrome.tabs.sendMessage(
